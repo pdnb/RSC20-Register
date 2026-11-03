@@ -3,6 +3,8 @@
 namespace App\Livewire\Admin;
 
 use App\Enums\Role;
+use App\Exports\ArraySheet;
+use App\Exports\Workbook;
 use App\Models\AuditLog;
 use App\Models\University;
 use App\Models\User;
@@ -12,6 +14,7 @@ use Illuminate\Validation\Rule;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
+use Maatwebsite\Excel\Facades\Excel;
 
 #[Layout('layouts.admin')]
 #[Title('บัญชีผู้ประสานงาน')]
@@ -92,11 +95,27 @@ class CoordinatorAccounts extends Component
     public function downloadIssued()
     {
         abort_if($this->issued === [], 404);
-        AuditLog::record('coordinator.credentials_exported', null, ['count' => count($this->issued)]);
+        AuditLog::record('coordinator.credentials_exported', null, ['count' => count($this->issued), 'format' => 'pdf']);
 
         $pdf = Pdf::loadView('pdf.coordinator-credentials', ['rows' => $this->issued, 'loginUrl' => route('login')])->setPaper('a4');
 
         return response()->streamDownload(fn () => print ($pdf->output()), 'rsc20-coordinator-accounts.pdf');
+    }
+
+    public function downloadIssuedExcel()
+    {
+        abort_if($this->issued === [], 404);
+        AuditLog::record('coordinator.credentials_exported', null, ['count' => count($this->issued), 'format' => 'xlsx']);
+
+        $loginUrl = route('login');
+        $rows = collect($this->issued)->values()->map(fn (array $row, int $i) => [
+            $i + 1, $row['university'], $row['name'], $row['username'], $row['password'], $loginUrl,
+        ])->all();
+
+        return Excel::download(
+            new Workbook([new ArraySheet('บัญชีผู้ประสานงาน', ['ลำดับ', 'มหาวิทยาลัย', 'ชื่อผู้ประสานงาน', 'username', 'รหัสผ่าน', 'URL เข้าสู่ระบบ'], $rows)]),
+            'rsc20-coordinator-accounts-'.now()->format('Ymd-Hi').'.xlsx',
+        );
     }
 
     private function issue(University $university, string $username, string $name, ?string $phone): void

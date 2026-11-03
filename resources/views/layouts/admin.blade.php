@@ -9,14 +9,14 @@
             $links = $user->isAdmin()
                 ? [
                     ['admin.dashboard', 'ภาพรวม'],
-                    ['admin.groups', 'ตรวจสลิป / กลุ่ม'],
+                    ['admin.groups', 'ตรวจสอบการชำระเงิน'],
                     ['admin.participants', 'ผู้เข้าร่วม'],
                     ['staff.checkin', 'เช็กอินหน้างาน'],
-                    ['admin.exports', 'Export Excel'],
-                    ['admin.finance', 'รายงานนำส่งกองคลัง'],
+                    ['admin.exports', 'ดาวน์โหลดข้อมูล'],
+                    ['admin.finance', 'นำส่งกองคลัง'],
                     ['admin.coordinators', 'บัญชีผู้ประสานงาน'],
-                    ['admin.users', 'ผู้ดูแล / staff'],
-                    ['admin.settings', 'ตั้งค่า / ค่าลงทะเบียน'],
+                    ['admin.users', 'ผู้ดูแลและเจ้าหน้าที่'],
+                    ['admin.settings', 'ตั้งค่าระบบ'],
                 ]
                 : [['staff.checkin', 'เช็กอินหน้างาน']];
         @endphp
@@ -42,7 +42,7 @@
             </aside>
             <div class="fixed inset-0 z-30 bg-slate-900/40 lg:hidden" x-show="nav" x-cloak @click="nav = false"></div>
 
-            <div class="min-w-0 flex-1">
+            <div class="flex min-w-0 flex-1 flex-col">
                 <header class="sticky top-0 z-20 flex items-center gap-3 border-b border-slate-200 bg-white px-4 py-3">
                     <button type="button" class="rounded-lg p-2 text-slate-600 hover:bg-slate-100 lg:hidden" @click="nav = true" aria-label="เปิดเมนู">
                         <svg class="size-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
@@ -60,13 +60,15 @@
                     </div>
                 </header>
 
-                <main class="p-4 lg:p-6">
+                <main class="flex-1 p-4 lg:p-6">
                     @if (session('status'))
                         <x-wirekit::callout intent="success" class="mb-4">{{ session('status') }}</x-wirekit::callout>
                     @endif
 
                     {{ $slot }}
                 </main>
+
+                @include('layouts.footer')
             </div>
         </div>
 

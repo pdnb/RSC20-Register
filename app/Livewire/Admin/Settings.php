@@ -10,7 +10,7 @@ use Livewire\Attributes\Title;
 use Livewire\Component;
 
 #[Layout('layouts.admin')]
-#[Title('ตั้งค่า / ค่าลงทะเบียน')]
+#[Title('ตั้งค่าระบบและค่าลงทะเบียน')]
 class Settings extends Component
 {
     /** @var array<int, string> participant_type_id → fee */

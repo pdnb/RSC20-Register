@@ -5,12 +5,13 @@ namespace App\Livewire\Admin;
 use App\Models\FinanceSubmission;
 use App\Models\University;
 use App\Services\FinanceReport as Report;
+use Illuminate\Validation\Rule;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
 #[Layout('layouts.admin')]
-#[Title('รายงานนำส่งกองคลังเพื่อออกใบเสร็จ')]
+#[Title('นำส่งกองคลังเพื่อออกใบเสร็จ')]
 class FinanceReport extends Component
 {
     public array $filters = [
@@ -18,6 +19,7 @@ class FinanceReport extends Component
         'date_to' => '',
         'university_id' => '',
         'method' => '',
+        'status' => '',
         'only_new' => true,
     ];
 
@@ -28,6 +30,7 @@ class FinanceReport extends Component
             'filters.date_to' => ['nullable', 'date', 'after_or_equal:filters.date_from'],
             'filters.university_id' => ['nullable', 'exists:universities,id'],
             'filters.method' => ['nullable', 'in:transfer,onsite'],
+            'filters.status' => ['nullable', Rule::in(array_keys(Report::STATUSES))],
         ], attributes: ['filters.date_to' => 'ถึงวันที่']);
 
         // Creating a submission always takes only participants never submitted before.
@@ -47,6 +50,7 @@ class FinanceReport extends Component
             'newCount' => Report::query([...$this->filters, 'only_new' => true])->count(),
             'submissions' => FinanceSubmission::query()->with('creator')->latest()->get(),
             'universities' => University::query()->orderBy('sort_order')->pluck('name', 'id'),
+            'statuses' => Report::STATUSES,
         ]);
     }
 }

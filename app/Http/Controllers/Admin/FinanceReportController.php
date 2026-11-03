@@ -62,13 +62,13 @@ class FinanceReportController extends Controller
         $s = $data['submission'];
 
         $rows = $data['participants']->map(fn ($p, $i) => [
-            $i + 1, $p->code, $p->receiptName(), $p->receiptAddress(), ThaiId::format($p->receiptTaxId()),
+            $i + 1, $p->code, $p->displayName(), $p->receiptName(), $p->receiptAddress(), ThaiId::format($p->receiptTaxId()),
             $p->group->university->name, $p->type->name_th, (float) $p->fee_amount, $p->group->payment_method?->label(),
-            $p->group->paidAt()?->format('d/m/Y H:i'), $p->group->slip_reference,
+            $p->group->paidAt()?->format('d/m/Y H:i') ?? 'รอชำระหน้างาน', $p->group->slip_reference,
             'หลักฐาน #'.$data['evidenceNo'][$p->registration_group_id], $p->receipt_no ?? '',
         ])->all();
-        $rows[] = ['', '', '', '', '', '', 'รวมทั้งสิ้น', $data['total'], '', '', '', '', ''];
-        $rows[] = ['', '', '('.$data['totalText'].')'];
+        $rows[] = ['', '', '', '', '', '', '', 'รวมทั้งสิ้น', $data['total'], '', '', '', '', ''];
+        $rows[] = ['', '', '', '('.$data['totalText'].')'];
 
         $summary = $data['summary']->map(fn ($r) => [$r['type'], $r['method'], $r['count'], $r['amount']])->all();
         $summary[] = ['รวมทั้งสิ้น', '', $data['participants']->count(), $data['total']];
@@ -95,7 +95,7 @@ class FinanceReportController extends Controller
         $file = $s->submission_no.'.xlsx';
         Excel::store(new Workbook([
             new ArraySheet('รายการออกใบเสร็จ', [
-                'ลำดับ', 'รหัสผู้ลงทะเบียน', 'ชื่อผู้รับใบเสร็จ', 'ที่อยู่', 'เลขประจำตัวผู้เสียภาษี', 'มหาวิทยาลัย', 'ประเภท',
+                'ลำดับ', 'รหัสผู้ลงทะเบียน', 'ชื่อ-นามสกุล', 'ชื่อผู้รับใบเสร็จ', 'ที่อยู่', 'เลขประจำตัวผู้เสียภาษี', 'มหาวิทยาลัย', 'ประเภท',
                 'จำนวนเงิน', 'ช่องทาง', 'วันที่ชำระ/อนุมัติ', 'เลขอ้างอิงสลิป', 'อ้างอิงหลักฐาน', 'เลขที่ใบเสร็จ (กองคลังกรอก)',
             ], $rows),
             new ArraySheet('สรุป', ['ประเภท', 'ช่องทาง', 'จำนวนคน', 'จำนวนเงิน'], $summary),

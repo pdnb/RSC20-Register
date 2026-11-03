@@ -2,21 +2,22 @@
     <x-wirekit::card>
         <x-wirekit::card.header><h2 class="font-semibold">สร้างรายงานนำส่งใหม่</h2></x-wirekit::card.header>
         <x-wirekit::card.body class="space-y-4">
-            <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
                 <x-wirekit::input wire:model.live="filters.date_from" type="date" label="ชำระ/อนุมัติตั้งแต่วันที่" />
                 <x-wirekit::input wire:model.live="filters.date_to" type="date" label="ถึงวันที่" />
                 <x-wirekit::select wire:model.live="filters.university_id" label="มหาวิทยาลัย" placeholder="ทุกมหาวิทยาลัย" :options="$universities" />
                 <x-wirekit::select wire:model.live="filters.method" label="ช่องทาง" placeholder="ทุกช่องทาง" :options="['transfer' => 'โอนเงิน', 'onsite' => 'ชำระหน้างาน']" />
+                <x-wirekit::select wire:model.live="filters.status" label="สถานะ" placeholder="ทุกสถานะ" :options="$statuses" />
             </div>
             <x-wirekit::checkbox wire:model.live="filters.only_new" label="แสดงเฉพาะรายการที่ยังไม่เคยนำส่ง" />
 
             <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-blue-50 p-4">
                 <div class="text-sm text-blue-900">
-                    ชำระแล้วตามเงื่อนไข <b>{{ number_format($previewCount) }}</b> คน · <b>{{ number_format($previewTotal, 2) }}</b> บาท
-                    <div class="text-xs text-blue-700">จะนำส่งในรายงานใหม่ {{ number_format($newCount) }} คน (รายการที่เคยนำส่งแล้วจะไม่ถูกนำส่งซ้ำ)</div>
+                    พบ <b>{{ number_format($previewCount) }}</b> คน รวม <b>{{ number_format($previewTotal, 2) }}</b> บาท
+                    <div class="text-xs text-blue-700">นำส่งได้ {{ number_format($newCount) }} คน ไม่รวมรายการที่เคยนำส่งไปแล้ว</div>
                 </div>
                 <x-wirekit::button wire:click="create" :disabled="$newCount === 0"
-                    wire:confirm="สร้างรายงานนำส่งกองคลัง {{ $newCount }} รายการ? รายการเหล่านี้จะถูกบันทึกว่านำส่งแล้ว">สร้างรายงานนำส่ง</x-wirekit::button>
+                    wire:confirm="สร้างรายงานนำส่งกองคลัง {{ $newCount }} รายการ? เมื่อสร้างแล้วจะนับว่านำส่งเรียบร้อย">สร้างรายงานนำส่ง</x-wirekit::button>
             </div>
         </x-wirekit::card.body>
     </x-wirekit::card>

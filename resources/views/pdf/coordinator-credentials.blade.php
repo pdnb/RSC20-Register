@@ -17,7 +17,7 @@
             <table>
                 <tr><td style="width: 30%">มหาวิทยาลัย</td><td><b>{{ $row['university'] }}</b></td></tr>
                 <tr><td>เข้าสู่ระบบที่</td><td>{{ $loginUrl }}</td></tr>
-                <tr><td>ชื่อผู้ใช้ (username)</td><td class="mono">{{ $row['username'] }}</td></tr>
+                <tr><td>ชื่อผู้ใช้</td><td class="mono">{{ $row['username'] }}</td></tr>
                 <tr><td>รหัสผ่านชั่วคราว</td><td class="mono">{{ $row['password'] }}</td></tr>
                 <tr><td colspan="2" class="muted">ระบบจะให้เปลี่ยนรหัสผ่านเมื่อเข้าสู่ระบบครั้งแรก</td></tr>
             </table>

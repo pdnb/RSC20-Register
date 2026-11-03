@@ -94,6 +94,39 @@ class ReportsTest extends TestCase
         $this->actingAs($admin)->get(route('admin.finance.download', [$submission, 'zip']))->assertOk()->assertDownload();
     }
 
+    public function test_finance_report_filters_by_status_including_onsite_pending(): void
+    {
+        $transfer = $this->paidTransferGroup('มหาวิทยาลัยราชภัฏสุราษฎร์ธานี');
+
+        $onsitePaid = $this->group($this->university('มหาวิทยาลัยราชภัฏภูเก็ต'));
+        $this->participant($onsitePaid, ParticipantType::STAFF);
+        $onsitePaid->refresh()->forceFill(['payment_method' => PaymentMethod::Onsite, 'payment_status' => PaymentStatus::OnsitePaid, 'onsite_received_at' => now()])->save();
+
+        $onsitePending = $this->group($this->university('มหาวิทยาลัยราชภัฏยะลา'));
+        $this->participant($onsitePending);
+        $onsitePending->refresh()->forceFill(['payment_method' => PaymentMethod::Onsite, 'payment_status' => PaymentStatus::Pending])->save();
+
+        $this->participant($this->group($this->university('มหาวิทยาลัยราชภัฏนครศรีธรรมราช'))); // no method chosen
+
+        $groupsFor = fn (array $filters) => FinanceReport::query($filters)->pluck('registration_group_id')->unique()->sort()->values()->all();
+
+        $this->assertSame(collect([$transfer->id, $onsitePaid->id, $onsitePending->id])->sort()->values()->all(), $groupsFor([]));
+        $this->assertSame(collect([$transfer->id, $onsitePaid->id])->sort()->values()->all(), $groupsFor(['date_from' => now()->subDay()->toDateString()]));
+        $this->assertSame([$transfer->id], $groupsFor(['status' => 'approved']));
+        $this->assertSame([$onsitePaid->id], $groupsFor(['status' => 'onsite_paid']));
+        $this->assertSame([$onsitePending->id], $groupsFor(['status' => 'onsite_pending', 'date_from' => now()->addWeek()->toDateString()]));
+
+        $admin = $this->admin();
+        Livewire::actingAs($admin)->test(FinanceReportPage::class)
+            ->set('filters.status', 'onsite_pending')
+            ->call('create')
+            ->assertHasNoErrors();
+
+        $submission = FinanceSubmission::query()->sole();
+        $this->assertSame([$onsitePending->id], $submission->participants->pluck('registration_group_id')->unique()->values()->all());
+        $this->actingAs($admin)->get(route('admin.finance.download', [$submission, 'pdf']))->assertOk();
+    }
+
     public function test_excel_exports_download(): void
     {
         $this->paidTransferGroup('มหาวิทยาลัยราชภัฏสุราษฎร์ธานี');
@@ -121,5 +154,9 @@ class ReportsTest extends TestCase
         $this->assertNotSame($issued[0]['password'], $first->password); // hashed
 
         $page->call('downloadIssued')->assertFileDownloaded('rsc20-coordinator-accounts.pdf');
+
+        $this->travelTo(now()->setDateTime(2026, 11, 3, 9, 30));
+        $page->call('downloadIssuedExcel')->assertFileDownloaded('rsc20-coordinator-accounts-20261103-0930.xlsx');
+        $this->assertDatabaseHas('audit_logs', ['action' => 'coordinator.credentials_exported']);
     }
 }

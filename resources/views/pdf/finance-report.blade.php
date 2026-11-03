@@ -34,7 +34,7 @@
             <td class="right">ช่วงวันที่ชำระ/อนุมัติ {{ $submission->date_from?->format('d/m/Y') ?? 'ทั้งหมด' }} – {{ $submission->date_to?->format('d/m/Y') ?? $submission->created_at->format('d/m/Y') }}</td>
         </tr>
         <tr>
-            <td colspan="2">ขอนำส่งรายการผู้ชำระค่าลงทะเบียน จำนวน {{ number_format($participants->count()) }} ราย รวมเป็นเงิน {{ number_format($total, 2) }} บาท ({{ $totalText }}) เพื่อออกใบเสร็จรับเงินในนามบุคคลตามรายละเอียดดังนี้</td>
+            <td colspan="2">ขอนำส่งรายการผู้ลงทะเบียน จำนวน {{ number_format($participants->count()) }} ราย รวมเป็นเงิน {{ number_format($total, 2) }} บาท ({{ $totalText }}) เพื่อออกใบเสร็จรับเงินในนามบุคคลตามรายละเอียดดังนี้</td>
         </tr>
     </table>
 
@@ -43,8 +43,9 @@
             <tr>
                 <th style="width: 3%">ที่</th>
                 <th style="width: 8%">รหัส</th>
-                <th style="width: 15%">ชื่อผู้รับใบเสร็จ</th>
-                <th style="width: 22%">ที่อยู่</th>
+                <th style="width: 10%">ชื่อ-นามสกุล</th>
+                <th style="width: 13%">ชื่อผู้รับใบเสร็จ</th>
+                <th style="width: 14%">ที่อยู่</th>
                 <th style="width: 11%">เลขประจำตัวผู้เสียภาษี</th>
                 <th style="width: 12%">มหาวิทยาลัย</th>
                 <th style="width: 6%">ประเภท</th>
@@ -59,19 +60,20 @@
                 <tr>
                     <td class="center">{{ $i + 1 }}</td>
                     <td>{{ $p->code }}</td>
+                    <td>{{ $p->displayName() }}</td>
                     <td>{{ $p->receiptName() }}</td>
                     <td>{{ $p->receiptAddress() }}</td>
                     <td>{{ \App\Support\ThaiId::format($p->receiptTaxId()) }}</td>
                     <td>{{ $p->group->university->name }}</td>
                     <td>{{ $p->type->name_th }}</td>
                     <td class="right">{{ number_format($p->fee_amount, 2) }}</td>
-                    <td>{{ $p->group->payment_method?->label() }}<br><span class="muted">{{ $p->group->paidAt()?->format('d/m/Y') }}</span></td>
+                    <td>{{ $p->group->payment_method?->label() }}<br><span class="muted">{{ $p->group->paidAt()?->format('d/m/Y') ?? 'รอชำระหน้างาน' }}</span></td>
                     <td class="center">#{{ $evidenceNo[$p->registration_group_id] }}</td>
                     <td></td>
                 </tr>
             @endforeach
             <tr>
-                <td colspan="7" class="right"><b>รวมทั้งสิ้น</b></td>
+                <td colspan="8" class="right"><b>รวมทั้งสิ้น</b></td>
                 <td class="right"><b>{{ number_format($total, 2) }}</b></td>
                 <td colspan="3">({{ $totalText }})</td>
             </tr>

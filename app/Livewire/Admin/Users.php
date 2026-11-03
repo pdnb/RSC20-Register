@@ -13,7 +13,7 @@ use Livewire\Component;
 
 /** Auth0 allowlist: who may sign in as admin or check-in staff. */
 #[Layout('layouts.admin')]
-#[Title('ผู้ดูแล / เจ้าหน้าที่')]
+#[Title('ผู้ดูแลและเจ้าหน้าที่')]
 class Users extends Component
 {
     public string $email = '';

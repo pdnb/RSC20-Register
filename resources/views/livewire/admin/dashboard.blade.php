@@ -1,6 +1,6 @@
 <x-wirekit::stack gap="lg">
     @if ($feesMissing)
-        <x-wirekit::callout intent="warning">ยังไม่ได้กำหนดค่าลงทะเบียนบางประเภท — <x-wirekit::link :href="route('admin.settings')">ไปหน้าตั้งค่า</x-wirekit::link></x-wirekit::callout>
+        <x-wirekit::callout intent="warning">ยังไม่ได้กำหนดค่าลงทะเบียนบางประเภท <x-wirekit::link :href="route('admin.settings')">ไปหน้าตั้งค่า</x-wirekit::link></x-wirekit::callout>
     @endif
 
     <x-wirekit::page-header title="ภาพรวมการลงทะเบียน" description="สรุปผู้ลงทะเบียน การชำระเงิน และการเช็กอินของงาน RSC20">
@@ -15,7 +15,7 @@
                 </x-wirekit::button>
                 <x-wirekit::button :href="route('admin.exports')" intent="neutral" surface="outline" size="sm">
                     <x-slot:iconLeft><x-wirekit::icon name="download" size="sm" /></x-slot:iconLeft>
-                    Export Excel
+                    ดาวน์โหลดข้อมูล
                 </x-wirekit::button>
                 <x-wirekit::button :href="route('staff.checkin')" wire:navigate intent="primary" size="sm">
                     <x-slot:iconLeft><x-wirekit::icon name="scan" size="sm" /></x-slot:iconLeft>

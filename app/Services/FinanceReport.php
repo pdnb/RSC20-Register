@@ -18,23 +18,33 @@ use Illuminate\Support\Facades\Storage;
 
 /**
  * Report sent to the finance office (กองคลัง) so it can issue one receipt per person.
- * Only paid participants are included, and each participant can be submitted once.
+ * Covers paid participants and pay-at-venue groups not paid yet, so the office can prepare their
+ * receipts before the event. Each participant can be submitted once.
  */
 class FinanceReport
 {
+    /** Status filter options; an empty value means all of them. */
+    public const STATUSES = [
+        'approved' => 'ชำระแล้ว (อนุมัติสลิป)',
+        'onsite_paid' => 'ชำระหน้างานแล้ว',
+        'onsite_pending' => 'รอชำระหน้างาน',
+    ];
+
     /**
-     * @param  array{date_from?: ?string, date_to?: ?string, university_id?: ?string, method?: ?string, only_new?: bool}  $filters
+     * @param  array{date_from?: ?string, date_to?: ?string, university_id?: ?string, method?: ?string, status?: ?string, only_new?: bool}  $filters
      */
     public static function query(array $filters): Builder
     {
         $from = filled($filters['date_from'] ?? null) ? Carbon::parse($filters['date_from'])->startOfDay() : null;
         $to = filled($filters['date_to'] ?? null) ? Carbon::parse($filters['date_to'])->endOfDay() : null;
+        $status = $filters['status'] ?? null;
 
         return Participant::query()
-            ->whereHas('group', function (Builder $g) use ($filters, $from, $to) {
-                $g->whereIn('payment_status', PaymentStatus::paid())
-                    ->when($filters['university_id'] ?? null, fn ($q, $id) => $q->where('university_id', $id))
-                    ->when($filters['method'] ?? null, fn ($q, $m) => $q->where('payment_method', $m))
+            ->whereHas('group', function (Builder $g) use ($filters, $from, $to, $status) {
+                $g->when($filters['university_id'] ?? null, fn ($q, $id) => $q->where('university_id', $id))
+                    ->when($filters['method'] ?? null, fn ($q, $m) => $q->where('payment_method', $m));
+
+                $paid = fn ($q) => $q->whereIn('payment_status', $status ? [PaymentStatus::from($status)] : PaymentStatus::paid())
                     ->when($from || $to, fn ($q) => $q->where(function ($w) use ($from, $to) {
                         $w->where(fn ($a) => $a->where('payment_status', PaymentStatus::Approved)
                             ->when($from, fn ($x) => $x->where('approved_at', '>=', $from))
@@ -43,6 +53,14 @@ class FinanceReport
                                 ->when($from, fn ($x) => $x->where('onsite_received_at', '>=', $from))
                                 ->when($to, fn ($x) => $x->where('onsite_received_at', '<=', $to)));
                     }));
+                $onsitePending = fn ($q) => $q->where('payment_method', PaymentMethod::Onsite)->where('payment_status', PaymentStatus::Pending);
+
+                // Unpaid on-site groups have no payment date, so a date range leaves them out of "all statuses".
+                match ($status) {
+                    'onsite_pending' => $g->where($onsitePending),
+                    'approved', 'onsite_paid' => $g->where($paid),
+                    default => $g->where(fn ($w) => $w->where($paid)->when(! $from && ! $to, fn ($w) => $w->orWhere($onsitePending))),
+                };
             })
             ->when($filters['only_new'] ?? true, fn ($q) => $q->whereDoesntHave('financeSubmissions'));
     }
@@ -51,7 +69,7 @@ class FinanceReport
     {
         return DB::transaction(function () use ($filters, $user) {
             $participants = self::query($filters)->lockForUpdate()->get();
-            abort_if($participants->isEmpty(), 422, 'ไม่มีรายการที่ชำระแล้วตามเงื่อนไข');
+            abort_if($participants->isEmpty(), 422, 'ไม่มีรายการตามเงื่อนไขที่เลือก');
 
             $next = (int) FinanceSubmission::query()->lockForUpdate()->count() + 1;
             $submission = FinanceSubmission::query()->create([

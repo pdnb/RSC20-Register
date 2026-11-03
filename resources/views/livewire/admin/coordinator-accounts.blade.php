@@ -1,6 +1,6 @@
 <div class="space-y-4">
     <div class="flex flex-wrap items-center justify-between gap-2">
-        <p class="text-sm text-slate-500">ผู้ประสานงานเข้าสู่ระบบด้วย username + รหัสผ่านที่ออกจากหน้านี้ และต้องเปลี่ยนรหัสผ่านเมื่อเข้าครั้งแรก</p>
+        <p class="text-sm text-slate-500">ผู้ประสานงานใช้ username และรหัสผ่านที่สร้างจากหน้านี้เข้าสู่ระบบ และต้องเปลี่ยนรหัสผ่านเมื่อเข้าใช้งานครั้งแรก</p>
         <div class="flex gap-2">
             @if ($missing > 0)
                 <x-wirekit::button intent="neutral" surface="outline" wire:click="createMissing"
@@ -11,8 +11,8 @@
     </div>
 
     @if ($issued)
-        <x-wirekit::callout intent="warning" title="รหัสผ่านที่ออกใหม่ — แสดงครั้งเดียว">
-            <p class="mb-3">คัดลอกหรือดาวน์โหลด PDF เก็บไว้ก่อนออกจากหน้านี้ ระบบเก็บรหัสผ่านแบบเข้ารหัสทางเดียว จึงเรียกดูภายหลังไม่ได้</p>
+        <x-wirekit::callout intent="warning" title="รหัสผ่านใหม่ แสดงเพียงครั้งเดียว">
+            <p class="mb-3">กรุณาคัดลอกหรือดาวน์โหลดไฟล์ PDF หรือ Excel เก็บไว้ก่อนออกจากหน้านี้ เพราะจะเปิดดูรหัสผ่านอีกไม่ได้</p>
             <div class="mb-3 overflow-x-auto rounded-lg bg-white">
                 <table class="w-full text-sm">
                     <thead class="bg-slate-50 text-left text-xs text-slate-500"><tr><th class="px-3 py-2">มหาวิทยาลัย</th><th class="px-3 py-2">username</th><th class="px-3 py-2">รหัสผ่าน</th></tr></thead>
@@ -23,7 +23,10 @@
                     </tbody>
                 </table>
             </div>
-            <x-wirekit::button size="sm" wire:click="downloadIssued">ดาวน์โหลด PDF ใบแจ้งบัญชี</x-wirekit::button>
+            <div class="flex flex-wrap gap-2">
+                <x-wirekit::button size="sm" wire:click="downloadIssued">ดาวน์โหลด PDF ใบแจ้งบัญชี</x-wirekit::button>
+                <x-wirekit::button size="sm" intent="neutral" surface="outline" wire:click="downloadIssuedExcel">ดาวน์โหลด Excel</x-wirekit::button>
+            </div>
         </x-wirekit::callout>
     @endif
 

@@ -3,7 +3,7 @@
     <head>
         @include('layouts.head')
     </head>
-    <body class="min-h-screen bg-slate-100 text-slate-800 antialiased">
+    <body class="flex min-h-screen flex-col bg-slate-100 text-slate-800 antialiased">
         {{-- Coordinator layout: white top bar --}}
         <header class="sticky top-0 z-30 border-b border-slate-200 bg-white">
             <div class="mx-auto flex max-w-6xl items-center gap-3 px-4 py-3">
@@ -47,13 +47,15 @@
             @endauth
         </header>
 
-        <main class="mx-auto max-w-6xl px-4 py-6">
+        <main class="mx-auto w-full max-w-6xl flex-1 px-4 py-6">
             @if (session('status'))
                 <x-wirekit::callout intent="success" class="mb-4">{{ session('status') }}</x-wirekit::callout>
             @endif
 
             {{ $slot }}
         </main>
+
+        @include('layouts.footer')
 
         <x-wirekit::toast-region />
         @wirekitScripts

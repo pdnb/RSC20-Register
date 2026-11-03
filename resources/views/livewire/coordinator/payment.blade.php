@@ -34,7 +34,7 @@
                         </x-wirekit::table.row>
                     @empty
                         <x-wirekit::table.row>
-                            <x-wirekit::table.td colspan="4"><span class="text-slate-500">ยังไม่มีรายชื่อ — <a class="text-blue-700 underline" href="{{ route('coordinator.dashboard') }}">เพิ่มรายชื่อ</a></span></x-wirekit::table.td>
+                            <x-wirekit::table.td colspan="4"><span class="text-slate-500">ยังไม่มีรายชื่อ <a class="text-blue-700 underline" href="{{ route('coordinator.dashboard') }}">เพิ่มรายชื่อ</a></span></x-wirekit::table.td>
                         </x-wirekit::table.row>
                     @endforelse
                 </x-wirekit::table.body>

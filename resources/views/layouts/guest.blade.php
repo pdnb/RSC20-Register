@@ -14,6 +14,8 @@
             <div class="w-full max-w-md">
                 {{ $slot }}
             </div>
+
+            @include('layouts.footer')
         </div>
 
         <x-wirekit::toast-region />

@@ -11,7 +11,7 @@ use Livewire\Attributes\Url;
 use Livewire\Component;
 
 #[Layout('layouts.admin')]
-#[Title('ตรวจสลิป / กลุ่มลงทะเบียน')]
+#[Title('ตรวจสอบการชำระเงิน')]
 class Groups extends Component
 {
     #[Url]

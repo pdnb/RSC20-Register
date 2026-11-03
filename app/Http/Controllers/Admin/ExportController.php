@@ -84,7 +84,7 @@ class ExportController extends Controller
     private function receiptsSheet(bool $withId): ArraySheet
     {
         $rows = $this->participants()->map(fn (Participant $p, $i) => [
-            $i + 1, $p->code, $p->receiptName(), $p->receiptAddress(),
+            $i + 1, $p->code, $p->displayName(), $p->receiptName(), $p->receiptAddress(),
             $withId ? ThaiId::format($p->receiptTaxId()) : ThaiId::mask($p->receiptTaxId()),
             $p->group->university->name, $p->type->name_th, (float) $p->fee_amount,
             $p->group->payment_method?->label(), $p->group->payment_status->label(),
@@ -92,7 +92,7 @@ class ExportController extends Controller
         ])->all();
 
         return new ArraySheet('ข้อมูลใบเสร็จ', [
-            'ลำดับ', 'รหัส', 'ชื่อผู้รับใบเสร็จ', 'ที่อยู่', 'เลขประจำตัวผู้เสียภาษี', 'มหาวิทยาลัย', 'ประเภท', 'จำนวนเงิน',
+            'ลำดับ', 'รหัส', 'ชื่อ-นามสกุล', 'ชื่อผู้รับใบเสร็จ', 'ที่อยู่', 'เลขประจำตัวผู้เสียภาษี', 'มหาวิทยาลัย', 'ประเภท', 'จำนวนเงิน',
             'ช่องทาง', 'สถานะ', 'วันที่ชำระ/อนุมัติ', 'เลขที่ใบเสร็จ',
         ], $rows);
     }

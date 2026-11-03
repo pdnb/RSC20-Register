@@ -1,6 +1,6 @@
-<x-layouts.admin-page title="Export Excel">
+<x-layouts.admin-page title="ดาวน์โหลดข้อมูล">
     <div class="space-y-4">
-        <x-wirekit::callout intent="info">ไฟล์ทุกไฟล์จะแสดงเลขประจำตัวแบบปิดบัง ยกเว้นเลือก "รวมเลขบัตรเต็ม" (ใช้ทำประกัน/การเงิน) ทุกการดาวน์โหลดจะถูกบันทึก log</x-wirekit::callout>
+        <x-wirekit::callout intent="info">เลขบัตรประชาชนในไฟล์จะแสดงแบบซ่อนบางส่วน หากต้องการเลขเต็มสำหรับทำประกันหรืองานการเงิน ให้กด "รวมเลขบัตรเต็ม" ระบบจะเก็บประวัติการดาวน์โหลดทุกครั้ง</x-wirekit::callout>
 
         <x-wirekit::card>
             <div class="divide-y divide-slate-100">
