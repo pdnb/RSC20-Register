@@ -1,4 +1,4 @@
-<form wire:submit="save" class="max-w-3xl space-y-4">
+<form wire:submit="save" class="space-y-4">
     <x-wirekit::card>
         <x-wirekit::card.header><h2 class="font-semibold">ค่าลงทะเบียนตามประเภทผู้เข้าร่วม (บาท/คน)</h2></x-wirekit::card.header>
         <x-wirekit::card.body class="space-y-3">

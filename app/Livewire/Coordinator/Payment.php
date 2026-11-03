@@ -60,7 +60,8 @@ class Payment extends Component
         $this->validate([
             'slip' => [Rule::requiredIf(! $this->group->slip_path), 'nullable', 'image', 'mimes:jpg,jpeg,png', 'max:5120'],
             'slip_reference' => ['nullable', 'string', 'max:100'],
-            'transferred_at' => ['required', 'date', 'before_or_equal:now'],
+            // The slip time is entered (and stored/displayed) as Thai wall-clock time, so compare it to "now" in Bangkok, not app UTC.
+            'transferred_at' => ['required', 'date_format:Y-m-d\TH:i', 'before_or_equal:'.now('Asia/Bangkok')->format('Y-m-d H:i:s')],
         ], attributes: [
             'slip' => 'สลิปการโอนเงิน',
             'slip_reference' => 'เลขอ้างอิง',

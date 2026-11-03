@@ -22,20 +22,20 @@
         @endphp
 
         <div class="flex min-h-screen">
-            {{-- Dark-blue sidebar --}}
-            <aside class="fixed inset-y-0 left-0 z-40 w-64 -translate-x-full bg-blue-950 text-blue-100 transition-transform lg:static lg:translate-x-0"
+            {{-- White sidebar with blue accents --}}
+            <aside class="fixed inset-y-0 left-0 z-40 w-64 -translate-x-full border-r border-slate-200 bg-white text-slate-600 transition-transform lg:static lg:translate-x-0"
                    :class="nav && 'translate-x-0'">
-                <div class="flex items-center gap-2 border-b border-blue-900 px-5 py-4">
+                <div class="flex items-center gap-2 border-b border-slate-200 px-5 py-4">
                     <img src="{{ asset('images/logo.webp') }}" alt="" class="size-11 shrink-0 rounded-xl bg-white object-contain">
-                    <div class="text-sm font-semibold leading-tight text-white">RSC20<br><span class="font-normal text-blue-300">ส่วนผู้ดูแล</span></div>
+                    <div class="text-sm font-semibold leading-tight text-blue-700">RSC20<br><span class="font-normal text-slate-500">ส่วนผู้ดูแล</span></div>
                 </div>
                 <nav class="space-y-0.5 p-3 text-sm">
                     @foreach ($links as [$name, $label])
                         <a href="{{ route($name) }}" wire:navigate
                            @class([
-                               'block rounded-lg px-3 py-2',
-                               'bg-blue-700 font-medium text-white' => request()->routeIs($name.'*'),
-                               'hover:bg-blue-900' => ! request()->routeIs($name.'*'),
+                               'block rounded-lg border-l-4 px-3 py-2',
+                               'border-gold-500 bg-blue-50 font-medium text-blue-700' => request()->routeIs($name.'*'),
+                               'border-transparent hover:bg-slate-100 hover:text-slate-900' => ! request()->routeIs($name.'*'),
                            ])>{{ $label }}</a>
                     @endforeach
                 </nav>

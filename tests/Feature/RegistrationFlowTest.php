@@ -12,6 +12,7 @@ use App\Models\ParticipantType;
 use App\Models\RegistrationGroup;
 use App\Models\Setting;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -335,6 +336,23 @@ class RegistrationFlowTest extends TestCase
         $this->assertSame(PaymentStatus::Approved, $group->payment_status);
         $this->assertSame('2000.00', $group->paid_amount);
         $this->assertSame($admin->id, $group->approved_by);
+    }
+
+    public function test_transferred_at_is_validated_against_bangkok_time(): void
+    {
+        $this->travelTo(Carbon::parse('2026-11-03 03:00:00', 'UTC'));
+        $user = $this->coordinator();
+        $group = $this->group();
+        $this->participant($group);
+
+        $submit = fn (string $transferredAt) => Livewire::actingAs($user)->test(Payment::class)
+            ->set('slip', UploadedFile::fake()->image('slip.jpg', 600, 1200))
+            ->set('transferred_at', $transferredAt)
+            ->call('submitSlip');
+
+        $submit('2026-11-03T09:30')->assertHasNoErrors();
+        $submit('2026-11-03T10:30')->assertHasErrors(['transferred_at' => 'before_or_equal']);
+        $submit('03/11/2026 09:30')->assertHasErrors(['transferred_at' => 'date_format']);
     }
 
     public function test_admin_rejects_slip_with_reason(): void

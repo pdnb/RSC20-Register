@@ -1,4 +1,4 @@
-<div class="mx-auto max-w-xl space-y-4">
+<div class="space-y-4">
     <div class="flex items-center justify-between">
         <h1 class="text-lg font-semibold text-slate-900">เช็กอินหน้างาน</h1>
         <x-wirekit::badge intent="primary">เช็กอินแล้ว {{ number_format($stats['checked']) }} / {{ number_format($stats['total']) }}</x-wirekit::badge>
@@ -6,7 +6,7 @@
 
     {{-- Camera --}}
     <div wire:ignore x-data="{ on: false, scanner: null }" class="overflow-hidden rounded-xl border border-slate-200 bg-white">
-        <div id="qr-reader" class="aspect-square w-full bg-slate-900" x-show="on"></div>
+        <div id="qr-reader" class="mx-auto aspect-square w-full max-w-md bg-slate-900" x-show="on"></div>
         <div class="flex gap-2 p-3">
             <x-wirekit::button class="flex-1" x-show="!on"
                 x-on:click="on = true; $nextTick(() => scanner = window.startCheckinScanner('qr-reader', (t) => $wire.scanned(t)))">เปิดกล้องสแกน QR</x-wirekit::button>

@@ -1,5 +1,5 @@
 <x-layouts.admin-page title="Export Excel">
-    <div class="max-w-3xl space-y-4">
+    <div class="space-y-4">
         <x-wirekit::callout intent="info">ไฟล์ทุกไฟล์จะแสดงเลขประจำตัวแบบปิดบัง ยกเว้นเลือก "รวมเลขบัตรเต็ม" (ใช้ทำประกัน/การเงิน) ทุกการดาวน์โหลดจะถูกบันทึก log</x-wirekit::callout>
 
         <x-wirekit::card>

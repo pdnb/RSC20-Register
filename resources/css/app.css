@@ -10,20 +10,44 @@
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../storage/framework/views/*.php';
 
+/* Brand palette taken from the logo: navy (overrides Tailwind's blue) and gold. */
 @theme {
     --font-sans: 'Anuphan', ui-sans-serif, system-ui, sans-serif;
+
+    --color-blue-50: #eef1fa;
+    --color-blue-100: #dbe1f3;
+    --color-blue-200: #bac5e8;
+    --color-blue-300: #8d9fd6;
+    --color-blue-400: #5f76bf;
+    --color-blue-500: #3f57a6;
+    --color-blue-600: #2f448d;
+    --color-blue-700: #263873;
+    --color-blue-800: #1f2f5f;
+    --color-blue-900: #1b284f;
+    --color-blue-950: #111934;
+
+    --color-gold-50: #fbf6ea;
+    --color-gold-100: #f5e9c8;
+    --color-gold-200: #ebd394;
+    --color-gold-300: #dfb95e;
+    --color-gold-400: #d4a63f;
+    --color-gold-500: #c8962c;
+    --color-gold-600: #a97a22;
+    --color-gold-700: #875d1e;
+    --color-gold-800: #6f4c1f;
+    --color-gold-900: #5d3f1e;
 }
 
-/* Theme: blue / slate grey / white, mapped onto WireKit tokens. Light only. */
+/* Theme: logo navy / gold / slate grey / white, mapped onto WireKit tokens. Light only. */
 :root {
     --font-wk-sans: 'Anuphan', ui-sans-serif, system-ui, sans-serif;
     --font-wk-icon-nudge: 0px;
 
-    --color-wk-accent: #1d4ed8;
-    --color-wk-accent-hover: #1e40af;
-    --color-wk-accent-content: #1d4ed8;
+    --color-wk-accent: #263873;
+    --color-wk-accent-hover: #1f2f5f;
+    --color-wk-accent-content: #263873;
     --color-wk-accent-fg: #ffffff;
-    --color-wk-ring: #3b82f6;
+    --color-wk-ring: #c8962c;
 
     --color-wk-bg: #ffffff;
     --color-wk-bg-subtle: #f8fafc;
@@ -36,9 +60,9 @@
 }
 
 .dark {
-    --color-wk-accent: #3b82f6;
-    --color-wk-accent-hover: #60a5fa;
-    --color-wk-accent-content: #93c5fd;
+    --color-wk-accent: #5f76bf;
+    --color-wk-accent-hover: #8d9fd6;
+    --color-wk-accent-content: #bac5e8;
     --color-wk-accent-fg: #0f172a;
 }
 
