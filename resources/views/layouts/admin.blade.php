@@ -26,7 +26,7 @@
             <aside class="fixed inset-y-0 left-0 z-40 w-64 -translate-x-full bg-blue-950 text-blue-100 transition-transform lg:static lg:translate-x-0"
                    :class="nav && 'translate-x-0'">
                 <div class="flex items-center gap-2 border-b border-blue-900 px-5 py-4">
-                    <span class="flex size-9 items-center justify-center rounded-xl bg-white text-sm font-bold text-blue-800">20</span>
+                    <img src="{{ asset('images/logo.webp') }}" alt="" class="size-11 shrink-0 rounded-xl bg-white object-contain">
                     <div class="text-sm font-semibold leading-tight text-white">RSC20<br><span class="font-normal text-blue-300">ส่วนผู้ดูแล</span></div>
                 </div>
                 <nav class="space-y-0.5 p-3 text-sm">
