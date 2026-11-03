@@ -390,9 +390,10 @@ class RegistrationFlowTest extends TestCase
         $this->participant($group);
         $admin = $this->admin();
 
-        foreach (['coordinator.dashboard', 'coordinator.payment', 'coordinator.qr', 'coordinator.password'] as $route) {
+        foreach (['coordinator.dashboard', 'coordinator.payment', 'coordinator.password'] as $route) {
             $this->actingAs($coordinator)->get(route($route))->assertOk();
         }
+        $this->actingAs($coordinator)->get('/qr')->assertNotFound();
 
         foreach (['admin.dashboard', 'admin.groups', 'admin.participants', 'admin.coordinators', 'admin.users', 'admin.settings', 'admin.exports', 'admin.finance', 'staff.checkin'] as $route) {
             $this->actingAs($admin)->get(route($route))->assertOk();

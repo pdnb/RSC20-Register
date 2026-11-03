@@ -17,7 +17,6 @@
                         @foreach ([
                             ['coordinator.dashboard', 'รายชื่อผู้เข้าร่วม'],
                             ['coordinator.payment', 'ชำระเงิน'],
-                            ['coordinator.qr', 'QR เช็กอิน'],
                         ] as [$name, $label])
                             <a href="{{ route($name) }}" wire:navigate
                                @class([
@@ -44,9 +43,7 @@
             @auth
                 <nav class="flex gap-1 overflow-x-auto border-t border-slate-100 px-4 py-2 text-sm md:hidden">
                     <a href="{{ route('coordinator.dashboard') }}" class="whitespace-nowrap rounded-lg px-3 py-1.5 {{ request()->routeIs('coordinator.dashboard') ? 'bg-blue-50 text-blue-700' : 'text-slate-600' }}">รายชื่อ</a>
-                    <a href="{{ route('coordinator.payment') }}" class="whitespace-nowrap rounded-lg px-3 py-1.5 {{ request()->routeIs('coordinator.payment') ? 'bg-blue-50 text-blue-700' : 'text-slate-600' }}">ชำระเงิน</a>
-                    <a href="{{ route('coordinator.qr') }}" class="whitespace-nowrap rounded-lg px-3 py-1.5 {{ request()->routeIs('coordinator.qr') ? 'bg-blue-50 text-blue-700' : 'text-slate-600' }}">QR เช็กอิน</a>
-                </nav>
+                    <a href="{{ route('coordinator.payment') }}" class="whitespace-nowrap rounded-lg px-3 py-1.5 {{ request()->routeIs('coordinator.payment') ? 'bg-blue-50 text-blue-700' : 'text-slate-600' }}">ชำระเงิน</a>                </nav>
             @endauth
         </header>
 

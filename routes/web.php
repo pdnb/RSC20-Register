@@ -49,7 +49,6 @@ Route::middleware('auth')->group(function () {
 Route::middleware(['auth', 'role:coordinator'])->group(function () {
     Route::livewire('/dashboard', Coordinator\GroupManager::class)->name('coordinator.dashboard');
     Route::livewire('/payment', Coordinator\Payment::class)->name('coordinator.payment');
-    Route::livewire('/qr', Coordinator\QrCards::class)->name('coordinator.qr');
     Route::livewire('/password', ChangePassword::class)->name('coordinator.password');
 });
 
