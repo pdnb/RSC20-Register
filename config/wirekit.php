@@ -1,0 +1,953 @@
+<?php
+
+declare(strict_types=1);
+
+use Pushery\WireKit\Support\EnvValue;
+
+/*
+|--------------------------------------------------------------------------
+| Environment variables
+|--------------------------------------------------------------------------
+|
+| Every `WIREKIT_*` variable below is read through EnvValue::get(), where a
+| blank value counts as unset: a line such as `WIREKIT_DEDUPE_IDS=` in your
+| `.env` keeps the default beside it, the same as leaving the line out.
+|
+*/
+
+return [
+
+    /*
+    |--------------------------------------------------------------------------
+    | Component Prefix
+    |--------------------------------------------------------------------------
+    |
+    | Default: 'wirekit' → <x-wirekit::button>
+    | Change to 'ui' for <x-ui::button>.
+    |
+    */
+
+    'prefix' => 'wirekit',
+
+    /*
+    |--------------------------------------------------------------------------
+    | Default Currency
+    |--------------------------------------------------------------------------
+    |
+    | ISO 4217 currency code the <x-wirekit::price> / <x-wirekit::pricing-tier>
+    | components use when no per-call `currency` is passed. Uppercase (EUR, USD,
+    | GBP). The components read this key; it is declared here so a global default
+    | is settable AND visible.
+    |
+    */
+
+    'currency' => EnvValue::get('WIREKIT_CURRENCY', 'USD'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Runtime Validation Strictness
+    |--------------------------------------------------------------------------
+    |
+    | Decides how WireKit reacts when a component is rendered with a value
+    | outside the allowed list — invalid prop value, unknown icon alias,
+    | etc. See `Pushery\WireKit\Support\StrictnessGate` for the gate's
+    | central decision, and https://docs.wirekit.app/strict-validation for
+    | the full matrix.
+    |
+    | Two settings decide it together. `strict` sets how loudly an invalid
+    | prop is reported; `throw_on_invalid` below decides whether a strict
+    | report is an exception. A prop only throws when both say so.
+    |
+    | null  — Default. Strict when APP_DEBUG=true, lenient otherwise.
+    |
+    | true  — Strict everywhere. An invalid prop throws where
+    |         `throw_on_invalid` allows it (by default a console or test
+    |         run) and is logged at ERROR level with the fallback rendered
+    |         everywhere else, an HTTP request included. For a staging
+    |         environment that should fail loudly, set both.
+    |
+    | false — Lenient everywhere. An invalid prop is logged at WARNING
+    |         level and the first allowed value is rendered. No exception,
+    |         whatever `throw_on_invalid` says.
+    |
+    */
+
+    'validation' => [
+        'strict' => EnvValue::get('WIREKIT_STRICT_VALIDATION'),
+
+        // Whether an invalid value (a bad prop value, an unknown icon alias)
+        // should THROW rather than degrade to a fallback. Null (default) uses the
+        // context: console / artisan / test fail fast so a typo breaks the build
+        // loudly, while an HTTP request degrades so one bad value cannot 500 a
+        // whole view (an unknown icon renders an inert placeholder). Set true to
+        // throw, false to degrade — an explicit value wins in both directions.
+        // A prop value throws only while `strict` is on as well; an unknown icon
+        // alias reads this setting alone.
+        'throw_on_invalid' => EnvValue::get('WIREKIT_THROW_ON_INVALID'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Doctor
+    |--------------------------------------------------------------------------
+    |
+    | Configuration for the `wirekit:doctor` command. The doctor is a read-only
+    | diagnostic that surfaces install / asset / env issues. Toggles below let
+    | developers disable individual opt-in helpers in environments where they
+    | don't apply (e.g. apps with custom log channels).
+    |
+    | scan_logs: when true (default), the doctor scans storage/logs/laravel*.log
+    | for `WireKit [...]` ERROR / WARNING lines emitted by StrictnessGate's
+    | HTTP-dev fallback path. The scan SAFE-DEGRADES at every failure mode
+    | (missing log file, non-file log channel, unreadable file) — set to false
+    | only when you want to suppress the helper entirely.
+    |
+    */
+
+    'doctor' => [
+        'scan_logs' => EnvValue::get('WIREKIT_DOCTOR_SCAN_LOGS', true),
+
+        // How far back the log scan looks, in hours. Without a bound the check reads the
+        // whole history, so a typo fixed weeks ago keeps its line in laravel.log forever
+        // and the warning stays yellow for the life of the file — a developer who did
+        // exactly what they were told sees no change, and learns to stop reading it.
+        //
+        // 0 removes the bound and reads the whole log.
+        'scan_logs_window_hours' => EnvValue::get('WIREKIT_DOCTOR_SCAN_LOGS_WINDOW_HOURS', 24),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Sandbox Audit Log
+    |--------------------------------------------------------------------------
+    |
+    | The sandbox renderer writes one line per request to
+    | storage/logs/sandbox/YYYY-MM-DD.log. The client address is kept only as
+    | a digest of its network (an IPv4 /24, an IPv6 /48), keyed with the
+    | application key. Daily files older than the retention below are deleted
+    | when a new day's file is opened; null keeps them all. Only files still
+    | named YYYY-MM-DD.log are deleted: a day that log rotation compressed or
+    | renamed stays until whatever rotated it removes it.
+    |
+    */
+
+    'sandbox' => [
+        'audit_log_retention_days' => EnvValue::get('WIREKIT_SANDBOX_AUDIT_RETENTION_DAYS', 14),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Component Defaults
+    |--------------------------------------------------------------------------
+    |
+    | Default prop values per component. Overridable without publishing views.
+    | These are read via config('wirekit.components.{name}.{prop}', fallback).
+    |
+    */
+
+    /*
+    |--------------------------------------------------------------------------
+    | Theme
+    |--------------------------------------------------------------------------
+    |
+    | Where the theme-controller stores the reader's choice. The key is shared
+    | by the control and by the @wirekitThemeScript head script — they must agree
+    | or the page paints one theme and then switches to the other.
+    |
+    | `storage` picks the backing store:
+    |   'local'  — localStorage (default, client-only). The head script must read
+    |              it and apply `.dark` before paint; the server never sees it.
+    |   'cookie' — document.cookie, which the SERVER can read on the next request.
+    |              With this driver your Laravel layout can resolve the theme from
+    |              the request cookie and render <html class="dark"> itself, so the
+    |              first paint is already correct and the head script is only a
+    |              safety net for the 'system' case. Required for any server-
+    |              rendered dark mode. IMPORTANT: the control writes the cookie from
+    |              JavaScript (unencrypted), so if your app runs the EncryptCookies
+    |              middleware you MUST add this key to its `$except` list, or Laravel
+    |              drops it as tampered on the server read. `cookie_attributes`
+    |              tunes the written cookie (a UI preference: Lax + one-year Max-Age
+    |              is the sensible default; Secure is added automatically on HTTPS).
+    |
+    | `script` picks how @wirekitThemeScript delivers the head script:
+    |   'inline'   — written into the page (default). A Content-Security-Policy
+    |                grants it through the nonce you pass: @wirekitThemeScript($nonce).
+    |   'external' — loaded as a file from your own origin, for a policy that
+    |                allows no inline script at all. It still runs before the
+    |                first paint, because a plain script tag in <head> holds the
+    |                page until it has run.
+    |
+    */
+    'theme' => [
+        'storage' => EnvValue::get('WIREKIT_THEME_STORAGE', 'local'),
+        'storage_key' => EnvValue::get('WIREKIT_THEME_STORAGE_KEY', 'wirekit-theme'),
+        'script' => EnvValue::get('WIREKIT_THEME_SCRIPT', 'inline'),
+        'cookie_attributes' => [
+            'same_site' => EnvValue::get('WIREKIT_THEME_COOKIE_SAME_SITE', 'Lax'),
+            'max_age' => (int) EnvValue::get('WIREKIT_THEME_COOKIE_MAX_AGE', 31536000),
+            'path' => EnvValue::get('WIREKIT_THEME_COOKIE_PATH', '/'),
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Accessibility
+    |--------------------------------------------------------------------------
+    |
+    | Global a11y defaults. `announce_error` controls whether form controls
+    | wrap their error message in an aria-live="polite" region so screen
+    | readers announce it as it appears. Turn it OFF app-wide when your app
+    | runs its OWN error live-region and would otherwise double-announce; a
+    | per-control `:announce-error` still overrides this default.
+    |
+    */
+    'a11y' => [
+        'announce_error' => EnvValue::get('WIREKIT_ANNOUNCE_ERROR', true),
+
+        // Give each form control a page-unique DOM id even when several share a
+        // `name` (a create + an edit form, a filter bar + a modal, a repeater row).
+        // The first occurrence keeps the clean derived id; later collisions get a
+        // -2/-3 suffix, so `label[for]` and `aria-describedby` always resolve to
+        // the right control. Set false to restore the pre-2.20 verbatim behavior.
+        'dedupe_ids' => EnvValue::get('WIREKIT_DEDUPE_IDS', true),
+
+        // Motion is decided by the operating system unless your application
+        // states otherwise. Set `data-reduce-motion` on <html> to override it:
+        //
+        //   reduce          reduce motion whatever the OS says
+        //   no-preference   do NOT reduce, even though the OS asks — for someone
+        //                   who set the OS flag for an unrelated reason
+        //   attribute absent  follow the OS (the default)
+        //
+        // The middle state is why an attribute exists at all: a media query can
+        // express two states and an application needs three. Both halves of the
+        // library read the same attribute — the stylesheet for transitions, the
+        // Alpine components for the decisions CSS cannot make (stopping an
+        // auto-advance, revealing a streamed buffer at once) — so they cannot
+        // disagree on the same page.
+        //
+        // This is a record, not a switch: changing it changes nothing. Nothing reads
+        // this key, not a component, not a class and not the JavaScript. Both halves
+        // carry the name literally, the stylesheet in its selectors and
+        // `resources/js/utils/motion.js` in its MOTION_ATTRIBUTE constant, and there
+        // is no .env variable for it.
+        //
+        // It is here because the value is worth knowing: writing your own
+        // reduced-motion rules means matching this attribute, and reading it here
+        // beats searching a minified bundle.
+        //
+        // It is not configurable because `[data-reduce-motion]` is a structural
+        // selector, so no CSS variable can parameterize it. A configurable name would
+        // mean compiling the stylesheet yourself instead of using the prebuilt one.
+        'motion_attribute' => 'data-reduce-motion',
+
+        // The attribute an increased-contrast preference is expressed with, and like the
+        // one above this is a RECORD of what the stylesheet carries rather than a switch:
+        // `dist/wirekit.css` names it literally in its selectors, so changing this string
+        // changes nothing. It is here to be read.
+        //
+        // Three states, because two of them cannot be written as a media query:
+        //   data-contrast="more"           an explicit request — wins over the OS setting
+        //   data-contrast="no-preference"  an explicit refusal — also wins over the OS
+        //   (absent)                       follow `prefers-contrast`
+        //
+        // What it affects is the muted end of the palette: helper text, placeholders and
+        // borders — the values a reader with low vision loses first. Set it on <html> from
+        // your own preference UI, the same way you set `.dark`.
+        'contrast_attribute' => 'data-contrast',
+
+        /*
+         * The third preference, and the one that is a custom property rather than an
+         * attribute — because it carries a NUMBER, not a state. Motion and contrast each
+         * have three named positions; type size is a factor, and an application setting
+         * `1.25` should not have to pick from a list somebody else guessed at.
+         *
+         * Set it on the root element and the whole ramp moves together:
+         *
+         *     <html style="--font-scale-wk: 1.25">
+         *
+         * Like its two siblings, this key is a RECORD of the name the shipped stylesheet
+         * carries, not a switch that renames it: the stylesheet reads `--font-scale-wk`
+         * whatever the key says, so the two name the same property.
+         */
+        'font_scale_property' => '--font-scale-wk',
+    ],
+
+    /*
+     * Prop defaults and class overrides, one entry per component.
+     *
+     * A key with a dot names a sub-component ('card.header', 'dropdown.panel'), and under that
+     * key only `classes` is read. A sub-component's prop default is read through the dotted
+     * path, `config('wirekit.components.dropdown.panel.width')`, one segment at a time, so it
+     * belongs nested under its parent:
+     *
+     *     'dropdown' => ['panel' => ['width' => 'trigger']],
+     *
+     * A prop written under 'dropdown.panel' is never read. `WireKit::defaults()` takes either
+     * form and writes each value where it is read.
+     */
+    'components' => [
+        // Form components
+        'button' => ['intent' => 'primary', 'surface' => 'filled', 'size' => 'md'],
+        'swap' => ['effect' => 'fade'],
+        'theme-controller' => ['variant' => 'button', 'size' => 'md', 'surface' => 'filled'],
+        'fab' => ['position' => 'end'],
+        'fab.button' => [],
+        'button.group' => [],
+        // `format-hint`: a date or date-and-time field says so when the browser writes dates in a
+        // different order than the page, with a worked example. `true` turns it on for every
+        // such field, and a field can still pass its own `format-hint`.
+        'input' => ['size' => 'md', 'format-hint' => false],
+        'label' => [],
+        'select' => ['size' => 'md'],
+        'textarea' => ['size' => 'md', 'rows' => 3],
+        // The editor engine is a peer dependency (Tiptap recommended: install
+        // @tiptap/core + @tiptap/starter-kit and expose window.wirekitEditor — the
+        // legacy window.tiptapEditor name still works as a deprecated alias).
+        // `extensions` is an OPTIONAL list of name hints forwarded to YOUR factory;
+        // the factory owns the real extension set (see docs/components/editor.md). It
+        // defaults to an empty array so a factory that naively spreads it can't throw on a
+        // bare string — set your own hints here only if your factory reads them.
+        'editor' => ['extensions' => [], 'format' => 'html', 'toolbar' => 'basic', 'size' => 'md'],
+        'editor.toolbar' => [],
+
+        // Display components
+        'badge' => ['intent' => 'neutral', 'size' => 'md', 'surface' => 'soft'],
+        'step-marker' => ['intent' => 'neutral', 'size' => 'md'],
+        'card' => ['variant' => 'outlined'],
+        'card.header' => [],
+        'card.body' => [],
+        'card.footer' => [],
+        'avatar' => ['size' => 'md', 'shape' => 'circle', 'status-variant' => 'dot'],
+        'avatar.group' => [],
+        'flag' => ['size' => 'md', 'shape' => 'rect'],
+        'alert' => ['variant' => 'info'],
+        'toggle' => ['size' => 'md'],
+        'checkbox' => ['size' => 'md', 'variant' => 'default'],
+        'radio' => ['size' => 'md', 'variant' => 'default'],
+        'field' => [],
+        'field.set' => [],
+        'field.legend' => [],
+
+        // Data display components
+        // A sub-component's own options live NESTED, not under its flat dotted name.
+        // `config()` walks the segments, so a leaf under the literal key `'table.head'` is
+        // never reached — it reads as declared and resolves to the caller's default forever.
+        // The flat entries below stay as the catalog of sub-components; the values go here.
+        'table' => [
+            'striped' => false,
+            'hoverable' => false,
+            'compact' => false,
+            'responsive' => true,
+            'sticky-header-max' => '24rem',
+            'head' => ['variant' => 'filled'],
+        ],
+        'table.head' => [],
+        'table.body' => [],
+        'table.foot' => [],
+        'table.row' => [],
+        'table.th' => [],
+        'table.td' => [],
+        'pagination' => ['variant' => 'full', 'justify' => 'between'],
+        'empty-state' => ['variant' => 'default'],
+        'progress' => ['variant' => 'primary', 'size' => 'md', 'circle-size' => 'md'],
+        'usage-meter' => ['warn' => 0.8, 'danger' => 1.0],
+        // The colors a chart's series take: 'semantic' (the accent, the state colors and three
+        // further accents) or 'categorical' (eight pastels from the `--color-wk-chart-*` tokens,
+        // each a fill and an edge). A chart's own `palette` prop wins.
+        'chart' => ['palette' => 'semantic'],
+        // The two string defaults are null on purpose. A literal here WINS over the
+        // component's `__()` fallback — `config(key, default)` never reaches its second
+        // argument once the key exists — so an English word in this file silently made
+        // the catalog unreachable for every application that did not override it.
+        'filter-builder' => ['searchable' => false, 'search-placeholder' => null, 'search-debounce' => 300, 'add-label' => null],
+        'status-matrix' => ['cell-type' => 'status', 'legend' => true],
+        'notification-center' => ['group-by' => 'none', 'filters' => false],
+        'data-table' => ['density' => 'comfortable', 'selectable' => false, 'searchable' => false, 'search-debounce' => 300, 'sticky-column' => false],
+        'event-calendar' => ['view' => 'month', 'week-starts-on' => 1],
+        // The first day of the week, 0 (Sunday) to 6 (Saturday); null follows the application's
+        // locale. A calendar's own `week-starts-on` prop wins.
+        'calendar' => ['week-starts-on' => 1],
+        // What a map loads when it sets no `style-url` of its own: `maplibre.style-url` is the style
+        // a MapLibre map loads, `leaflet.style-url` the tiles a Leaflet map draws, and
+        // `leaflet.attribution` the credit shown beside those tiles. Point them at your own server
+        // and every map of the application loads from it. Left null, a MapLibre map loads
+        // MapLibre's demo style, its tiles and its fonts from demotiles.maplibre.org, which
+        // receives each visitor's IP address, and a Leaflet map draws no tiles. A map that sets
+        // its own `style-url` keeps it and shows only its own `attribution`.
+        'map' => [
+            'provider' => 'maplibre',
+            'zoom' => 2,
+            'highlight' => 'ring',
+            'highlight-color' => 'accent',
+            'reduced-data' => 'respect',
+            'maplibre' => ['style-url' => null],
+            'leaflet' => ['style-url' => null, 'attribution' => null],
+        ],
+        'stat' => ['animate' => false],
+
+        // Layout primitives. These read a config default but were absent from the
+        // stub, so the surface they expose was invisible to anyone reading their
+        // own published file. Values here mirror the in-Blade fallback
+        // exactly — declaring them changes nothing, it only makes them settable.
+        'bento-grid' => ['gap' => 'md'],
+        'brand-bar' => ['max' => 'xl'],
+        'container' => ['max' => 'xl', 'padding' => 'md'],
+        'feature-grid' => ['cols' => '1 sm:2 lg:3'],
+        'footer' => ['max' => 'xl'],
+        'grid' => ['cols' => 1, 'gap' => 'md'],
+        'main' => ['padding' => 'lg', 'max' => '2xl'],
+        'row' => ['gap' => 'md'],
+        'section' => ['padding' => 'xl'],
+        'stack' => ['gap' => 'md'],
+
+        // Display components in the same position.
+        'message' => ['actions-reveal' => 'hover'],
+        'radial-progress' => ['size' => 'md', 'intent' => 'primary'],
+
+        // Region labels — the accessible name of each group. Null keeps the
+        // translated default (via __()); set one here to name the region once
+        // app-wide instead of repeating `label` on every instance.
+        'faq' => ['label' => null, 'size' => 'lg', 'variant' => 'flush'],
+        'pricing-table' => ['label' => null],
+        'testimonial-grid' => ['label' => null],
+        'attachment-group' => ['label' => null],
+        'skeleton' => ['animation' => 'shimmer'],
+        'spinner' => ['size' => 'md', 'intent' => null],
+        'assistant-message' => ['announce' => 'sentence'],
+        'conversation' => ['max-height' => '24rem'],
+        'scroll-area' => ['fade' => false],
+        'shimmer' => ['active' => true, 'duration' => null],
+
+        // Overlay components
+        'dropdown' => ['placement' => 'bottom-start', 'offset' => 8, 'panel' => ['width' => 'auto']],
+        'dropdown.panel' => [],
+        'dropdown.item' => [],
+        'dropdown.checkbox-item' => [],
+        'dropdown.radio-item' => [],
+        'tooltip' => ['placement' => 'top', 'offset' => 6, 'delay-show' => 300, 'delay-hide' => 100],
+        'modal' => ['size' => 'md', 'dismissible' => true, 'confirm-discard' => true, 'confirm-shortcut' => true],
+        'drawer' => ['position' => 'right', 'size' => 'md', 'dismissible' => true, 'confirm-discard' => true],
+        // `placeholder` is null rather than a literal so the component keeps resolving
+        // its own translated default; the hotkey is app-wide by nature.
+        'command-palette' => ['hotkey' => 'cmd+k', 'placeholder' => null],
+
+        // Navigation components
+        'tabs' => ['variant' => 'underline', 'findable' => false],
+        'breadcrumb' => ['separator' => 'chevron'],
+        // `item.open`, `collapsible.open` and `sidebar.collapsible.open`: whether a box starts open where the
+        // call does not say. An accordion takes it in `multiple` mode only, since in `single` mode one
+        // panel is open at a time and a default cannot say which.
+        'accordion' => ['mode' => 'single', 'variant' => 'bordered', 'size' => 'md', 'findable' => true, 'animate' => true, 'item' => ['open' => false]],
+        'accordion.item' => [],
+        'collapsible' => ['findable' => true, 'open' => false],
+        'sidebar' => ['collapsible' => ['open' => false]],
+        'sidebar.group' => [],
+        'sidebar.item' => [],
+        'stepper' => ['orientation' => 'horizontal'],
+        'wizard' => ['orientation' => 'horizontal'],
+
+        // Advanced form components
+        // No 'format' key: date-picker renders a native <input type="date">, whose
+        // displayed format is the viewer's locale by specification and is not settable
+        // by the page. The key shipped for a while and could never have had an effect.
+        // `format-hint`: the same as on 'input', for every date picker.
+        'date-picker' => ['size' => 'md', 'format-hint' => false],
+        'file-upload' => ['size' => 'md', 'multiple' => false, 'upload-separately' => false, 'accept' => null, 'capture' => null],
+        // `placement`: where the options panel opens, any placement `dropdown` takes. `panel-width`:
+        // `trigger` matches the field, `auto` fits the widest option, or a CSS length such as 20rem.
+        'combobox' => ['size' => 'md', 'placeholder' => null, 'placement' => 'bottom-start', 'panel-width' => 'trigger', 'search-min-length' => 2, 'search-debounce' => 300],
+        'multi-select' => ['placeholder' => null, 'placement' => 'bottom-start', 'panel-width' => 'trigger', 'search-min-length' => 2, 'search-debounce' => 300],
+        'otp-input' => ['length' => 6, 'masked' => false, 'justify' => 'start', 'size' => 'md'],
+        // `placeholder` is null rather than a literal so the component keeps resolving its
+        // own translated default; set a string here to override it in every locale at once.
+        'tags-input' => ['max-tags' => null, 'placeholder' => null],
+        'slider' => ['size' => 'md', 'min' => 0, 'max' => 100, 'step' => 1],
+        'range-slider' => ['show_values' => true, 'min' => 0, 'max' => 100, 'step' => 1],
+        'color-picker' => ['size' => 'md', 'format' => 'hex', 'native-on-mobile' => false],
+        'cart-item' => ['min' => 1, 'size' => 'lg'],
+        'number-input' => ['size' => 'md', 'step' => 1],
+        'password-input' => ['size' => 'md', 'toggle' => true, 'strength-meter' => false],
+        'phone' => ['country' => 'DE', 'size' => 'md'],
+        'time-picker' => ['size' => 'md'],
+
+        // Additional components
+        'navbar' => ['variant' => 'default', 'max' => 'xl', 'sticky' => false],
+        'rating' => ['size' => 'md', 'max' => 5],
+        'callout' => ['variant' => 'info'],
+        'data-list' => ['layout' => 'horizontal'],
+        'segmented-control' => ['size' => 'md'],
+        'popover' => ['placement' => 'bottom', 'offset' => 8],
+
+        // Scope switcher — the breadcrumb control that changes which team / server / site
+        // the page is about. `client_filter_max` is a warning threshold, not a limit: the
+        // filter is client-side, so past a few hundred rows the whole list is being shipped
+        // to filter a handful of them, and the component says so in debug rather than
+        // quietly getting slower.
+        'scope-switcher' => [
+            'placement' => 'bottom-start',
+            'offset' => 8,
+            'width' => '20rem',
+            'list_max_height' => '22rem',
+            'prefetch_on_hover' => true,
+            'client_filter_max' => 300,
+        ],
+        'scroll-to-top' => ['size' => 'md'],
+        'alert-dialog' => ['dismissible' => false, 'close-on-confirm' => false, 'confirm-shortcut' => true],
+        'toast-region' => ['position' => 'top-right', 'duration' => 5000, 'max' => 5],
+
+        // Activity-row kind → dot-color token map. Merged over the
+        // component's built-in defaults (commit / merge / deploy / comment /
+        // system / user); add your own kinds here, e.g.
+        // 'release' => 'var(--color-wk-warning)'.
+        'activity-row' => ['kinds' => []],
+        'price' => ['size' => 'md'],
+        'swatch' => ['size' => 'md', 'shape' => 'circle'],
+        // `labels`: 'hidden' (when null) keeps each name for assistive technology, 'below' shows it.
+        'swatch-group' => ['size' => 'md', 'shape' => 'circle', 'labels' => null],
+        'ticker' => ['size' => 'md'],
+
+        // Feature card icon-chip tone + size
+        'feature' => ['tone' => 'accent', 'size' => 'md'],
+
+        // Reveal animation wrapper — defaults for `<x-wirekit::reveal>`
+        'reveal' => [
+            'preset' => 'fade-in',
+            'trigger' => 'viewport',
+            'duration' => 'normal',
+            'once' => true,
+            'threshold' => 0.4,
+            'delay' => null,
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Flags
+    |--------------------------------------------------------------------------
+    |
+    | The artwork for <x-wirekit::flag> ships with WireKit, in its own
+    | resources/flags, so nothing needs installing and this stays unset for
+    | almost everybody. Set `path` to use a copy kept somewhere else instead,
+    | such as a checkout next to the application or a test fixture. A relative
+    | path is resolved against the application's base path.
+    |
+    | Setting it to a directory that holds no flags.json is the one way to make
+    | every flag draw its placeholder, so a wrong value here is visible rather
+    | than silent: WireKit logs one warning naming this setting.
+    |
+    */
+
+    'flags' => [
+        'path' => EnvValue::get('WIREKIT_FLAGS_PATH'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Icon Configuration
+    |--------------------------------------------------------------------------
+    |
+    | WireKit uses a shared semantic icon vocabulary (e.g. 'close', 'search',
+    | 'chevron-down') resolved via presets to actual Blade Icon identifiers.
+    | `php artisan wirekit:icons` prints the set your configured presets provide.
+    |
+    | Available built-in presets:
+    |   'heroicons'           — base, blade-ui-kit/blade-heroicons (~316 icons, Mini style)
+    |   'heroicons-app'       — stackable extension, EMPTY: all four base presets
+    |                           carry its words, so it adds nothing. The name
+    |                           resolves so a config that lists it keeps booting.
+    |   'heroicons-marketing' — stackable extension with marketing/landing aliases
+    |                           (sparkle, cursor-arrow-rays, cube-transparent, pulse, …)
+    |   'lucide'              — mallardduck/blade-lucide-icons (~1,500 icons)
+    |   'phosphor'            — codeat3/blade-phosphor-icons (~9,000 icons)
+    |   'tabler'              — secondnetwork/blade-tabler-icons (~7,200 icons)
+    |
+    | You can also provide a fully qualified class name implementing
+    | \Pushery\WireKit\Contracts\IconPreset for custom icon sets.
+    |
+    | Install your chosen icon set separately:
+    |   composer require blade-ui-kit/blade-icons blade-ui-kit/blade-heroicons
+    |
+    | Stacking presets (opt-in):
+    |   To compose multiple presets, use 'presets' instead of 'preset'. Later
+    |   entries override earlier ones; developer 'aliases' override all presets.
+    |
+    |   'presets' => ['heroicons', 'heroicons-marketing'],
+    |
+    |   The extension preset above resolves to heroicons glyphs, so it needs
+    |   blade-ui-kit/blade-heroicons installed — stacking it onto a lucide,
+    |   phosphor or tabler set gives you names that resolve to an icon that set
+    |   does not carry, and the failure lands at render time rather than at
+    |   boot. On those sets, define the names you want under 'aliases' below,
+    |   pointing at glyphs your own package provides.
+    |
+    */
+
+    'icons' => [
+        // Active icon preset (default: heroicons). Use 'presets' (plural) to
+        // stack multiple presets — see the comment block above.
+        'preset' => 'heroicons',
+
+        // Stack extra presets. The one below is heroicons-based and needs
+        // blade-heroicons installed — see the note in the comment block above
+        // before stacking it onto lucide, phosphor or tabler.
+        //
+        // `php artisan wirekit:doctor` now answers this for your installation: it
+        // names any configured preset whose package is absent, and it names the
+        // config entry rather than the package, because two presets can need the
+        // same one. Worth running after changing the line below. A preset whose
+        // package is missing decides by `validation.throw_on_invalid`: by default
+        // an HTTP request renders the icon placeholder and logs which package to
+        // install, while a console or test run throws.
+        // 'presets' => ['heroicons', 'heroicons-marketing'],
+
+        // Override individual aliases (optional).
+        // Overrides every preset for the specified aliases.
+        // Useful when you prefer a specific icon from a different set.
+        'aliases' => [
+            // 'close' => 'lucide-x',
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Fonts
+    |--------------------------------------------------------------------------
+    |
+    | Pick a bundled family per category, or null to keep the system stack — the
+    | default, which loads zero font files. Every family is bundled locally
+    | (GDPR-compliant): nothing is ever fetched from an external host.
+    |
+    | Run `php artisan wirekit:publish-fonts` after changing one, and
+    | `php artisan wirekit:fonts` to print the families your installation has.
+    |
+    | Available sans families:
+    |   'roboto', 'open-sans', 'lato', 'inter', 'montserrat',
+    |   'ibm-plex-sans', 'noto-sans', 'nunito-sans', 'dm-sans',
+    |   'vt323'
+    |
+    | Available serif families:
+    |   'playfair-display', 'lora', 'merriweather', 'ibm-plex-serif',
+    |   'noto-serif'
+    |
+    | Available mono families:
+    |   'ibm-plex-mono', 'roboto-mono', 'source-code-pro',
+    |   'jetbrains-mono', 'space-mono', 'google-sans-code'
+    |
+    | 'display' is the `font-display` every bundled @font-face is served with.
+    |
+    |   'swap'     (default) — text is readable immediately in a fallback face
+    |                          and swaps to the web font when it arrives. Every
+    |                          bundled family ships a metric-matched fallback,
+    |                          so that swap does not move the layout.
+    |   'optional'           — the browser may skip the web font entirely on a
+    |                          slow connection. It removes the swap by removing
+    |                          the font: some readers never see your brand face.
+    |                          That is a real trade and it is yours to make, not
+    |                          the library's.
+    |   'block' / 'fallback' / 'auto' — the remaining CSS values, unchanged.
+    |
+    | THIS ONE IS A SWITCH, and it reaches every path WireKit writes: the
+    | package route substitutes it while serving, and `wirekit:publish-fonts`
+    | writes it into the published copy. The one path it cannot reach is a raw
+    | `vendor:publish --tag=wirekit-fonts`, which is a plain file copy the
+    | framework performs — those files keep whatever the package shipped. That
+    | gap is REPORTED rather than left silent: the <x-wirekit::fonts> component
+    | emits an inert HTML comment naming the file, and `wirekit:verify` fails
+    | its font check. An interface that looks like an interface and is not is
+    | worse than having none, so this one says when it did not reach.
+    |
+    */
+
+    'fonts' => [
+        'sans' => null, // Anuphan is self-hosted via @fontsource in resources/css/app.css
+        'serif' => null,
+        'mono' => null,
+
+        'display' => 'swap',
+
+        // Families a page picks at runtime, per shop or per tenant, through the `sans`, `serif`
+        // and `mono` props of `<x-wirekit::fonts>`. `wirekit:publish-fonts` publishes them beside
+        // the three above and `--prune` keeps them, so such a page loads a static file with its
+        // preload rather than the package route. Keys as `php artisan wirekit:fonts` lists them.
+        'publish' => [],
+
+        /*
+        |----------------------------------------------------------------------
+        | Metric-matched fallbacks for YOUR fonts
+        |----------------------------------------------------------------------
+        |
+        | Every bundled family ships with a second `@font-face` that registers a
+        | local system font under its own name and overrides its metrics to match.
+        | Text painted before the swap then occupies the same box as text painted
+        | after it, and there is nothing left to shift.
+        |
+        | That stops at the bundle. A self-hosted font of your own gets nothing —
+        | which is exactly the setup the `null` values above are for. Declare it
+        | here and WireKit emits the same kind of face for it:
+        |
+        |     'fallbacks' => [
+        |         'Your Family' => [
+        |             'local' => ['Arial', 'Helvetica Neue', 'Liberation Sans'],
+        |             'sizeAdjust' => '___%',      // measure these four
+        |             'ascentOverride' => '___%',  // they are specific to YOUR
+        |             'descentOverride' => '___%', // font file, and no other
+        |             'lineGapOverride' => '___%', // family's numbers will do
+        |         ],
+        |     ],
+        |
+        | Then reference `'Your Family Fallback'` after your family in the font
+        | stack — that name is what this creates.
+        |
+        | The placeholders are deliberate. Real-looking numbers invite copying, and
+        | another family's metrics pasted for your own close only part of the gap
+        | they appear to close. Values that look measured and are not are worse
+        | than a blank, because a blank cannot be pasted.
+        |
+        | Measure the four values. Do not estimate them. A guessed `size-adjust`
+        | moves the layout in the OTHER direction and looks deliberate while doing
+        | it, which is worse than leaving the whole thing alone. The method, and
+        | the two things that are easy to get wrong about it, are on the Fonts
+        | component page under "Matching a font you host yourself".
+        |
+        | Empty by default: a font nobody declared is a font nobody measured.
+        */
+        'fallbacks' => [],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Chart Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Configure the chart library used by <x-wirekit-chart>.
+    | Set to null to disable chart support entirely (default).
+    |
+    | Available adapters:
+    |   'chartjs'    — Chart.js (MIT, ~60KB, requires npm install chart.js)
+    |   'apexcharts' — ApexCharts (NOT MIT — see apex_license below)
+    |
+    | You can also provide a fully qualified class name implementing
+    | \Pushery\WireKit\Contracts\ChartAdapter for custom chart libraries.
+    |
+    | Note: Chart.js must be installed separately by the developer:
+    |   npm install chart.js
+    |
+    | And imported in your app.js:
+    |   import { Chart, registerables } from 'chart.js';
+    |   Chart.register(...registerables);
+    |
+    | apex_license records which ApexCharts tier you are on: 'community',
+    | 'commercial' or 'oem'. It changes nothing at runtime — it is a declaration,
+    | read only by `wirekit:doctor`, which reminds you that ApexCharts is not MIT.
+    |
+    | The key is listed here because the doctor tells you to set it in this file,
+    | and an instruction that points at a key the shipped file does not contain
+    | is one a reader cannot follow.
+    |
+    | Declaring 'community' does not stop the reminder, and that is deliberate:
+    | the $2M USD revenue threshold is a continuing condition rather than an
+    | install step, so a project passes it without any file here changing.
+    |
+    */
+
+    'charts' => [
+        'library' => null, // null = disabled, 'chartjs' = Chart.js, 'apexcharts' = ApexCharts
+        'apex_license' => null, // null | 'community' | 'commercial' | 'oem' — declaration only
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Sign-in buttons
+    |--------------------------------------------------------------------------
+    |
+    | The logo a `sign-in-button` shows for each service, as a URL or a path
+    | the page can load, such as '/images/sign-in/google.svg'. WireKit ships
+    | none: Apple, Google, Meta and PayPal each ask for their own artwork from
+    | their own brand pages, under their own terms, and Amazon for its own
+    | button images. For Amazon the file is the whole button. The passkey icon
+    | is the FIDO Alliance's, which it gives to sites that sign in with
+    | passkeys under its usage agreement. A button whose service has no logo
+    | here shows its words alone.
+    |
+    | Apple's logo takes the color of the button's words, so it can be given as
+    | ['white' => '…', 'black' => '…']. An image can be given in one file per
+    | pixel density, ['1x' => '…', '2x' => '…'], which Amazon's button needs to
+    | stay sharp at its own size.
+    |
+    */
+
+    'sign_in' => [
+        'logos' => [
+            'google' => null,
+            'apple' => null,
+            'facebook' => null,
+            'paypal' => null,
+            'amazon' => null,
+            'passkey' => null,
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | JavaScript Bundle
+    |--------------------------------------------------------------------------
+    |
+    | Choose which JavaScript bundle @wirekitScripts loads.
+    |
+    | 'full' — All Alpine components including overlays.
+    |          Includes Floating UI + focus-trap, bundled.
+    |          Current sizes: docs.wirekit.app/dependencies.
+    |
+    | 'core' — The chart and image-compare Alpine components, the scopes of a
+    |          toggle-button that flips itself, of the native-color readout
+    |          beside a color field and of the date-range fields of a date
+    |          picker, plus the one directive the zero-JS form primitives need.
+    |          For projects that only use the form components, charts and the
+    |          before/after slider. It installs the overlay root but registers no
+    |          overlay component: `x-teleport` throws when its target is missing
+    |          and takes the page down, where an unregistered component is merely
+    |          inert.
+    |          The sizes live at the address above rather than here:
+    |          this file is copied into your application when you publish it,
+    |          and a figure written into it would stay behind as the bundle
+    |          changes.
+    |
+    | 'csp'  — For a Content-Security-Policy without `script-src 'unsafe-eval'`.
+    |
+    |          Alpine's default build evaluates every directive by constructing
+    |          a function at runtime, which such a policy blocks. Nothing throws
+    |          when it does: a one-time-code field still accepts typing and
+    |          simply stops advancing to the next box. This bundle is built
+    |          against Alpine's CSP distribution, which parses and interprets
+    |          expressions instead.
+    |
+    |          One difference matters: unlike 'full' and 'core', this bundle
+    |          contains Alpine and starts it. Do not also load your own — two
+    |          Alpines on a page is its own class of bug.
+    |
+    |          Every directive in the catalog runs under this bundle. An audit
+    |          drives Alpine's own parser and evaluator over each one on every
+    |          build, and the budget for failures is zero.
+    |
+    |          What it does not cover: Livewire brings its own directives and
+    |          compiles them at runtime the same way. Livewire ships a CSP
+    |          distribution for that — without it the page still needs
+    |          'unsafe-eval', whichever WireKit bundle you load.
+    |
+    |          On a Livewire page this bundle's parser never runs, and the order
+    |          is fixed by the tags rather than by the source: Livewire's script
+    |          carries no `defer` and executes while the document is parsed,
+    |          setting window.Alpine; this bundle is deferred and runs after. It
+    |          then finds an Alpine already there, registers its components on
+    |          that one, and never starts its own — the runtime says so in a
+    |          console warning. So the choice downloads a second Alpine that
+    |          never starts, and buys no CSP guarantee at all.
+    |
+    |          The lever on a Livewire page is Livewire's own: `csp_safe` in
+    |          `config/livewire.php`, with `bundle` left at 'full'. This bundle
+    |          is the answer for a page without Livewire, where it really is the
+    |          Alpine that evaluates your expressions.
+    |
+    | An unrecognized value falls back to 'full' rather than to no script at all.
+    |
+    */
+
+    'scripts' => [
+        'bundle' => 'full', // 'full', 'core' or 'csp'
+
+        /*
+         * Load the ApexCharts adapter alongside the bundle above.
+         *
+         * Turn this on if you use <x-wirekit::chart library="apexcharts">. It is off by
+         * default so an app that draws no charts ships no chart code — but leaving it off
+         * while using the component fails in a way that is easy to lose time to: the page
+         * renders, the console says "wirekitApexChart is not defined", and only the chart
+         * is missing. You still supply ApexCharts itself; this loads WireKit's glue for it.
+         */
+        'apex' => false,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Assets
+    |--------------------------------------------------------------------------
+    |
+    | Middleware for the routes that serve WireKit's own CSS, JS and fonts
+    | straight from the package (`/wirekit/wirekit.css` and its siblings).
+    |
+    | The default is NONE, and that is deliberate. Those handlers read a file
+    | from the package directory — no session, no CSRF token, no auth, no model
+    | binding. Putting them in `web` adds `StartSession`, which means a
+    | session read and write for every stylesheet hit and, worse, a `Set-Cookie`
+    | on a response that declares `public, max-age=31536000, immutable`. A shared
+    | cache may keep that response for a year and hand it to the next visitor
+    | with the cookie still attached. Most shared caches refuse a response
+    | carrying `Set-Cookie` — but that is their default, configurable and
+    | different per vendor, not a property of the response.
+    |
+    | Without the cookie the one-year directive is honest and a CDN can actually
+    | serve these files, which is what it was written for.
+    |
+    | Set this ONLY if your application needs its own middleware on them — a
+    | security-header or HTTPS-enforcement layer you apply everywhere is the
+    | realistic case. Both a string and a list are accepted. Anything that starts
+    | a session brings the cookie back with it.
+    |
+    */
+
+    'assets' => [
+        'middleware' => [],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Compact Classes
+    |--------------------------------------------------------------------------
+    |
+    | Every component writes its look as Tailwind utilities, and on a page of
+    | many components those class names are most of what the page weighs. A
+    | Livewire component sends them again with every update.
+    |
+    | Turned on, the kit's views write each utility under a short name, and
+    | @wirekitStyles links `wirekit-compact.css`, which declares every short
+    | class with exactly the rules of its utility, in the same order. The page
+    | looks the same and carries less than half of the class bytes.
+    |
+    | A class you put on a component keeps its name. While this is on, a
+    | selector of your own that looks for one of the kit's utilities on its
+    | elements finds nothing, and a utility of yours on a component element
+    | wins over the kit's where both set the same property.
+    |
+    | The setting is read once per request and per queued job, so a middleware
+    | may turn it on before the page renders.
+    |
+    */
+
+    'styles' => [
+        'compact' => EnvValue::get('WIREKIT_COMPACT_CLASSES', false),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Translations
+    |--------------------------------------------------------------------------
+    |
+    | WireKit ships its own strings under the `wirekit::` key prefix, so an
+    | application translating a common English word for its own purposes can no
+    | longer change what a WireKit component says. "Map" as a verb in your app
+    | and "Map" as a noun in a component are two strings now, not one.
+    |
+    | `legacy_key_bridge` keeps a translation you wrote BEFORE that prefix
+    | existed working. If your catalog has `"Close"` and nothing says
+    | `"wirekit::Close"`, your wording still applies. Turn it off to get the
+    | package's own wording everywhere and opt into the namespaced keys at your
+    | own pace. It is removed in the next major version.
+    |
+    */
+
+    'translations' => [
+        'legacy_key_bridge' => EnvValue::get('WIREKIT_LEGACY_TRANSLATION_KEYS', true),
+    ],
+
+];

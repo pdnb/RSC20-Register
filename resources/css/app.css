@@ -1,0 +1,48 @@
+@import '@fontsource/anuphan/300.css';
+@import '@fontsource/anuphan/400.css';
+@import '@fontsource/anuphan/500.css';
+@import '@fontsource/anuphan/600.css';
+@import '@fontsource/anuphan/700.css';
+
+@import 'tailwindcss';
+@source '../../vendor/pushery/wirekit/resources/views/**/*.blade.php';
+
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+
+@theme {
+    --font-sans: 'Anuphan', ui-sans-serif, system-ui, sans-serif;
+}
+
+/* Theme: blue / slate grey / white, mapped onto WireKit tokens. Light only. */
+:root {
+    --font-wk-sans: 'Anuphan', ui-sans-serif, system-ui, sans-serif;
+    --font-wk-icon-nudge: 0px;
+
+    --color-wk-accent: #1d4ed8;
+    --color-wk-accent-hover: #1e40af;
+    --color-wk-accent-content: #1d4ed8;
+    --color-wk-accent-fg: #ffffff;
+    --color-wk-ring: #3b82f6;
+
+    --color-wk-bg: #ffffff;
+    --color-wk-bg-subtle: #f8fafc;
+    --color-wk-bg-muted: #f1f5f9;
+    --color-wk-border: #e2e8f0;
+    --color-wk-text: #1e293b;
+    --color-wk-text-muted: #64748b;
+
+    --radius-wk: 0.5rem;
+}
+
+.dark {
+    --color-wk-accent: #3b82f6;
+    --color-wk-accent-hover: #60a5fa;
+    --color-wk-accent-content: #93c5fd;
+    --color-wk-accent-fg: #0f172a;
+}
+
+html,
+body {
+    font-family: var(--font-sans);
+}
