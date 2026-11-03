@@ -7,6 +7,8 @@ use App\Models\ParticipantType;
 use App\Models\Setting;
 use App\Support\Images;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -45,16 +47,22 @@ class Settings extends Component
 
         $badgeKeys = ['badge_photo_left', 'badge_photo_top', 'badge_photo_width', 'badge_photo_height', 'badge_text_top'];
 
-        $this->validate([
-            'fees.*' => ['required', 'numeric', 'min:0', 'max:100000'],
-            'settings.registration_opens_at' => ['nullable', 'date'],
-            'settings.registration_closes_at' => ['nullable', 'date', 'after_or_equal:settings.registration_opens_at'],
-            ...array_fill_keys(array_map(fn ($k) => 'settings.'.$k, $badgeKeys), ['required', 'numeric', 'between:0,100']),
-            'settings.*' => ['nullable', 'string', 'max:2000'],
-        ], attributes: [
-            'fees.*' => 'ค่าลงทะเบียน', 'settings.registration_closes_at' => 'วันปิดรับสมัคร',
-            ...array_fill_keys(array_map(fn ($k) => 'settings.'.$k, $badgeKeys), 'ตำแหน่งบนป้ายชื่อ'),
-        ]);
+        try {
+            $this->validate([
+                'fees.*' => ['required', 'numeric', 'min:0', 'max:100000'],
+                'settings.registration_opens_at' => ['nullable', 'date'],
+                'settings.registration_closes_at' => ['nullable', 'date', 'after_or_equal:settings.registration_opens_at'],
+                ...array_fill_keys(array_map(fn ($k) => 'settings.'.$k, $badgeKeys), ['required', 'numeric', 'between:0,100']),
+                'settings.*' => ['nullable', 'string', 'max:2000'],
+            ], attributes: [
+                'fees.*' => 'ค่าลงทะเบียน', 'settings.registration_closes_at' => 'วันปิดรับสมัคร',
+                ...array_fill_keys(array_map(fn ($k) => 'settings.'.$k, $badgeKeys), 'ตำแหน่งบนป้ายชื่อ'),
+            ]);
+        } catch (ValidationException $e) {
+            $this->dispatch('wirekit:focus-invalid');
+
+            throw $e;
+        }
 
         $before = ParticipantType::query()->pluck('fee', 'id')->all();
         foreach ($this->fees as $id => $fee) {
@@ -90,11 +98,37 @@ class Settings extends Component
         AuditLog::record('settings.badge_background', null, ['action' => 'removed']);
     }
 
+    /**
+     * Each tab with the count of rejected fields it holds, so an error on a hidden tab is still seen.
+     *
+     * @return list<array{key: string, label: string, badge: int|null, badgeIntent: string}>
+     */
+    private function tabs(): array
+    {
+        $tabs = [
+            'event' => ['งานและช่วงเวลา', ['settings.event_', 'settings.registration_']],
+            'fees' => ['ค่าลงทะเบียน', ['fees.']],
+            'bank' => ['บัญชีรับโอน', ['settings.bank_']],
+            'finance' => ['รายงาน / PDPA', ['settings.finance_', 'settings.pdpa_']],
+            'badge' => ['ป้ายชื่อ', ['settings.badge_', 'badgeBackground']],
+        ];
+
+        $errorFields = $this->getErrorBag()->keys();
+
+        return collect($tabs)->map(fn (array $tab, string $key) => [
+            'key' => $key,
+            'label' => $tab[0],
+            'badge' => collect($errorFields)->filter(fn (string $field) => Str::startsWith($field, $tab[1]))->count() ?: null,
+            'badgeIntent' => 'danger',
+        ])->values()->all();
+    }
+
     public function render()
     {
         $backgroundPath = Setting::get('badge_background_path');
 
         return view('livewire.admin.settings', [
+            'tabs' => $this->tabs(),
             'types' => ParticipantType::query()->orderBy('sort_order')->get(),
             'badgeBackgroundUrl' => $backgroundPath && Storage::disk('local')->exists($backgroundPath)
                 ? route('admin.badge-background', ['v' => Storage::disk('local')->lastModified($backgroundPath)])
