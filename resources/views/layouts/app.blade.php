@@ -3,57 +3,47 @@
     <head>
         @include('layouts.head')
     </head>
-    <body class="flex min-h-screen flex-col bg-slate-100 text-slate-800 antialiased">
+    <body class="flex min-h-screen flex-col bg-(--color-wk-bg-muted) text-(--color-wk-text) antialiased">
         {{-- Coordinator layout: white top bar --}}
-        <header class="sticky top-0 z-30 border-b border-slate-200 bg-white">
-            <div class="mx-auto flex max-w-6xl items-center gap-3 px-4 py-3">
-                <a href="{{ route('coordinator.dashboard') }}" class="flex items-center gap-2">
-                    <img src="{{ asset('images/logo.webp') }}" alt="" class="size-11 shrink-0 object-contain">
-                    <span class="hidden text-sm font-semibold leading-tight text-slate-900 sm:block">สัมมนาสมาพันธ์นักศึกษา<br>มหาวิทยาลัยราชภัฏ ครั้งที่ 20</span>
-                </a>
-
-                @auth
-                    <nav class="ml-4 hidden items-center gap-1 text-sm md:flex">
-                        @foreach ([
-                            ['coordinator.dashboard', 'รายชื่อผู้เข้าร่วม'],
-                            ['coordinator.payment', 'ชำระเงิน'],
-                        ] as [$name, $label])
-                            <a href="{{ route($name) }}" wire:navigate
-                               @class([
-                                   'rounded-lg px-3 py-2 font-medium',
-                                   'bg-blue-50 text-blue-700' => request()->routeIs($name),
-                                   'text-slate-600 hover:bg-slate-100' => ! request()->routeIs($name),
-                               ])>{{ $label }}</a>
-                        @endforeach
-                    </nav>
-
-                    <div class="ml-auto flex items-center gap-3">
-                        <div class="hidden text-right text-xs sm:block">
-                            <div class="font-medium text-slate-800">{{ auth()->user()->name }}</div>
-                            <div class="text-slate-500">{{ auth()->user()->university?->name }}</div>
-                        </div>
-                        <form method="POST" action="{{ route('logout') }}">
-                            @csrf
-                            <x-wirekit::button type="submit" intent="neutral" surface="outline" size="sm">ออกจากระบบ</x-wirekit::button>
-                        </form>
-                    </div>
-                @endauth
-            </div>
+        <x-wirekit::navbar sticky container max="xl" mobile="scroll">
+            <x-slot:brand>
+                <x-wirekit::brand :logo="asset('images/logo.webp')" logo-aspect="1/1" size="md" :href="route('coordinator.dashboard')">
+                    <x-wirekit::text as="span" size="sm" weight="semibold" leading="tight" class="max-sm:hidden">สัมมนาสมาพันธ์นักศึกษา<br>มหาวิทยาลัยราชภัฏ ครั้งที่ 20</x-wirekit::text>
+                </x-wirekit::brand>
+            </x-slot:brand>
 
             @auth
-                <nav class="flex gap-1 overflow-x-auto border-t border-slate-100 px-4 py-2 text-sm md:hidden">
-                    <a href="{{ route('coordinator.dashboard') }}" class="whitespace-nowrap rounded-lg px-3 py-1.5 {{ request()->routeIs('coordinator.dashboard') ? 'bg-blue-50 text-blue-700' : 'text-slate-600' }}">รายชื่อ</a>
-                    <a href="{{ route('coordinator.payment') }}" class="whitespace-nowrap rounded-lg px-3 py-1.5 {{ request()->routeIs('coordinator.payment') ? 'bg-blue-50 text-blue-700' : 'text-slate-600' }}">ชำระเงิน</a>                </nav>
+                @foreach ([
+                    ['coordinator.dashboard', 'รายชื่อผู้เข้าร่วม'],
+                    ['coordinator.payment', 'ชำระเงิน'],
+                ] as [$name, $label])
+                    <x-wirekit::navbar.item :href="route($name)" :active="request()->routeIs($name)" wire:navigate>{{ $label }}</x-wirekit::navbar.item>
+                @endforeach
             @endauth
-        </header>
 
-        <main class="mx-auto w-full max-w-6xl flex-1 px-4 py-6">
-            @if (session('status'))
-                <x-wirekit::callout intent="success" class="mb-4">{{ session('status') }}</x-wirekit::callout>
-            @endif
+            @auth
+                <x-slot:actions>
+                    <x-wirekit::stack gap="none" align="end" class="max-sm:hidden">
+                        <x-wirekit::text size="xs" weight="medium">{{ auth()->user()->name }}</x-wirekit::text>
+                        <x-wirekit::text size="xs" intent="muted">{{ auth()->user()->university?->name }}</x-wirekit::text>
+                    </x-wirekit::stack>
+                    <x-wirekit::form method="POST" action="{{ route('logout') }}">
+                        @csrf
+                        <x-wirekit::button type="submit" intent="neutral" surface="outline" size="sm">ออกจากระบบ</x-wirekit::button>
+                    </x-wirekit::form>
+                </x-slot:actions>
+            @endauth
+        </x-wirekit::navbar>
 
-            {{ $slot }}
-        </main>
+        <x-wirekit::main container max="xl" padding="md" class="w-full flex-1">
+            <x-wirekit::stack gap="md">
+                @if (session('status'))
+                    <x-wirekit::callout intent="success">{{ session('status') }}</x-wirekit::callout>
+                @endif
+
+                {{ $slot }}
+            </x-wirekit::stack>
+        </x-wirekit::main>
 
         @include('layouts.footer')
 

@@ -1,13 +1,17 @@
-<div class="space-y-4">
+<x-wirekit::stack gap="md">
     <x-wirekit::card>
         <x-wirekit::card.body>
-            <p class="mb-3 text-sm text-slate-500">อีเมลที่อยู่ในรายการนี้เท่านั้นที่เข้าสู่ระบบด้วย Auth0 ได้ (อีเมลต้องยืนยันแล้วใน Auth0)</p>
-            <form wire:submit="add" class="grid items-end gap-3 sm:grid-cols-4">
-                <x-wirekit::input wire:model="email" type="email" label="อีเมล" required />
-                <x-wirekit::input wire:model="name" label="ชื่อ" required />
-                <x-wirekit::select wire:model="role" label="สิทธิ์" :options="['staff' => 'เจ้าหน้าที่เช็กอิน', 'admin' => 'ผู้ดูแลระบบ']" />
-                <x-wirekit::button type="submit">เพิ่มสิทธิ์</x-wirekit::button>
-            </form>
+            <x-wirekit::stack gap="sm">
+                <x-wirekit::text size="sm" intent="muted">อีเมลที่อยู่ในรายการนี้เท่านั้นที่เข้าสู่ระบบด้วย Auth0 ได้ (อีเมลต้องยืนยันแล้วใน Auth0)</x-wirekit::text>
+                <x-wirekit::form wire:submit="add">
+                    <x-wirekit::grid cols="1 sm:4" gap="sm" align="end">
+                        <x-wirekit::input wire:model="email" type="email" label="อีเมล" required />
+                        <x-wirekit::input wire:model="name" label="ชื่อ" required />
+                        <x-wirekit::select wire:model="role" label="สิทธิ์" :options="['staff' => 'เจ้าหน้าที่เช็กอิน', 'admin' => 'ผู้ดูแลระบบ']" />
+                        <x-wirekit::button type="submit">เพิ่มสิทธิ์</x-wirekit::button>
+                    </x-wirekit::grid>
+                </x-wirekit::form>
+            </x-wirekit::stack>
         </x-wirekit::card.body>
     </x-wirekit::card>
 
@@ -41,4 +45,4 @@
             </x-wirekit::table.body>
         </x-wirekit::table>
     </x-wirekit::card>
-</div>
+</x-wirekit::stack>

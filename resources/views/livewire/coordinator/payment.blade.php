@@ -1,20 +1,18 @@
-<div class="space-y-6">
-    <div class="flex flex-wrap items-start justify-between gap-4">
-        <div>
-            <h1 class="text-xl font-semibold text-slate-900">ชำระค่าลงทะเบียน</h1>
-            <p class="text-sm text-slate-500">{{ $group->university->name }}</p>
-        </div>
-        <x-wirekit::badge :intent="$group->payment_status->intent()">{{ $group->payment_status->label() }}</x-wirekit::badge>
-    </div>
+<x-wirekit::stack gap="lg">
+    <x-wirekit::page-header title="ชำระค่าลงทะเบียน" :description="$group->university->name">
+        <x-slot:actions>
+            <x-wirekit::badge :intent="$group->payment_status->intent()">{{ $group->payment_status->label() }}</x-wirekit::badge>
+        </x-slot:actions>
+    </x-wirekit::page-header>
 
     @if ($group->reject_reason && ! $group->isPaid())
         <x-wirekit::callout intent="danger">{{ $group->reject_reason }}</x-wirekit::callout>
     @endif
 
-    <div class="grid gap-6 lg:grid-cols-5">
+    <x-wirekit::grid cols="1 lg:5" gap="lg">
         {{-- Breakdown --}}
         <x-wirekit::card class="lg:col-span-3">
-            <x-wirekit::card.header><h2 class="font-semibold">สรุปยอดค่าลงทะเบียน</h2></x-wirekit::card.header>
+            <x-wirekit::card.header><x-wirekit::heading level="2" size="base">สรุปยอดค่าลงทะเบียน</x-wirekit::heading></x-wirekit::card.header>
             <x-wirekit::table>
                 <x-wirekit::table.head>
                     <x-wirekit::table.row>
@@ -34,72 +32,72 @@
                         </x-wirekit::table.row>
                     @empty
                         <x-wirekit::table.row>
-                            <x-wirekit::table.td colspan="4"><span class="text-slate-500">ยังไม่มีรายชื่อ <a class="text-blue-700 underline" href="{{ route('coordinator.dashboard') }}">เพิ่มรายชื่อ</a></span></x-wirekit::table.td>
+                            <x-wirekit::table.td colspan="4">
+                                <x-wirekit::text as="span" size="sm" intent="muted">ยังไม่มีรายชื่อ <x-wirekit::link :href="route('coordinator.dashboard')">เพิ่มรายชื่อ</x-wirekit::link></x-wirekit::text>
+                            </x-wirekit::table.td>
                         </x-wirekit::table.row>
                     @endforelse
                 </x-wirekit::table.body>
             </x-wirekit::table>
-            <div class="flex items-center justify-between border-t border-slate-200 bg-blue-50 px-4 py-4">
-                <div>
-                    <div class="text-sm font-medium text-blue-800">ยอดรวมที่ต้องชำระ ({{ $summary['count'] }} คน)</div>
-                    <div class="text-xs text-blue-700">({{ \App\Support\ThaiBaht::text($summary['total']) }})</div>
-                </div>
-                <div class="text-2xl font-bold text-blue-800">{{ number_format($summary['total'], 2) }} ฿</div>
-            </div>
+            <x-wirekit::card.footer class="bg-(--color-wk-bg-subtle)">
+                <x-wirekit::row gap="md" align="center" justify="between" class="w-full">
+                    <x-wirekit::stack gap="none">
+                        <x-wirekit::text size="sm" weight="medium" intent="accent">ยอดรวมที่ต้องชำระ ({{ $summary['count'] }} คน)</x-wirekit::text>
+                        <x-wirekit::text size="xs" intent="accent">({{ \App\Support\ThaiBaht::text($summary['total']) }})</x-wirekit::text>
+                    </x-wirekit::stack>
+                    <x-wirekit::text size="xl" weight="bold" intent="accent" tabular class="text-2xl">{{ number_format($summary['total'], 2) }} ฿</x-wirekit::text>
+                </x-wirekit::row>
+            </x-wirekit::card.footer>
         </x-wirekit::card>
 
         {{-- Payment method --}}
-        <div class="space-y-4 lg:col-span-2">
+        <x-wirekit::stack gap="md" class="lg:col-span-2">
             @if ($group->isPaid())
                 <x-wirekit::callout intent="success" title="ชำระเงินเรียบร้อย">
                     {{ $group->payment_status->label() }} เมื่อ {{ $group->paidAt()?->format('d/m/Y H:i') }}
                 </x-wirekit::callout>
             @elseif ($summary['count'] > 0)
                 <x-wirekit::card>
-                    <x-wirekit::card.body class="space-y-4">
-                        <div class="text-sm font-medium text-slate-800">เลือกวิธีชำระเงิน</div>
-                        <div class="grid grid-cols-2 gap-2">
-                            @foreach (['transfer' => 'โอนเงิน + แนบสลิป', 'onsite' => 'ชำระหน้างาน'] as $value => $label)
-                                <label @class([
-                                    'cursor-pointer rounded-xl border p-3 text-center text-sm',
-                                    'border-blue-600 bg-blue-50 font-medium text-blue-800' => $method === $value,
-                                    'border-slate-200 text-slate-600' => $method !== $value,
-                                ])>
-                                    <input type="radio" class="sr-only" wire:model.live="method" value="{{ $value }}">{{ $label }}
-                                </label>
-                            @endforeach
-                        </div>
+                    <x-wirekit::card.body>
+                        <x-wirekit::stack gap="md">
+                            <x-wirekit::text size="sm" weight="medium">เลือกวิธีชำระเงิน</x-wirekit::text>
+                            <x-wirekit::grid cols="2" gap="sm" role="radiogroup" aria-label="เลือกวิธีชำระเงิน">
+                                @foreach (['transfer' => 'โอนเงิน + แนบสลิป', 'onsite' => 'ชำระหน้างาน'] as $value => $label)
+                                    <x-wirekit::radio variant="card" name="method" wire:model.live="method" :value="$value" :label="$label" />
+                                @endforeach
+                            </x-wirekit::grid>
 
-                        @if ($method === 'transfer')
-                            @if ($bank['account_no'])
-                                <div class="rounded-lg bg-slate-50 p-3 text-sm">
-                                    <div class="text-slate-500">โอนเข้าบัญชี</div>
-                                    <div class="font-medium">{{ $bank['name'] }}</div>
-                                    <div class="font-mono text-base font-semibold text-blue-800">{{ $bank['account_no'] }}</div>
-                                    <div>{{ $bank['account_name'] }}</div>
-                                </div>
-                            @endif
+                            @if ($method === 'transfer')
+                                @if ($bank['account_no'])
+                                    <x-wirekit::card surface="flat" class="bg-(--color-wk-bg-subtle)">
+                                        <x-wirekit::card.body>
+                                            <x-wirekit::stack gap="none">
+                                                <x-wirekit::text size="sm" intent="muted">โอนเข้าบัญชี</x-wirekit::text>
+                                                <x-wirekit::text size="sm" weight="medium">{{ $bank['name'] }}</x-wirekit::text>
+                                                <x-wirekit::text family="mono" weight="semibold" intent="accent">{{ $bank['account_no'] }}</x-wirekit::text>
+                                                <x-wirekit::text size="sm">{{ $bank['account_name'] }}</x-wirekit::text>
+                                            </x-wirekit::stack>
+                                        </x-wirekit::card.body>
+                                    </x-wirekit::card>
+                                @endif
 
-                            <form wire:submit="submitSlip" class="space-y-3">
-                                <div>
-                                    <div class="mb-1 text-sm font-medium text-slate-800">สลิปการโอนเงิน (jpg/png ไม่เกิน 5MB)</div>
-                                    <input type="file" wire:model="slip" accept="image/jpeg,image/png"
-                                        class="block w-full text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-blue-50 file:px-3 file:py-2 file:text-sm file:font-medium file:text-blue-700">
-                                    <div wire:loading wire:target="slip" class="mt-1 text-xs text-slate-500">กำลังอัปโหลด…</div>
-                                    @error('slip')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
-                                </div>
-                                <x-wirekit::input wire:model="transferred_at" type="datetime-local" label="วันเวลาที่โอน" required />
-                                <x-wirekit::input wire:model="slip_reference" label="เลขอ้างอิงในสลิป (ถ้ามี)" />
-                                <x-wirekit::button type="submit" class="w-full" wire:loading.attr="disabled" wire:target="slip,submitSlip">
-                                    {{ $group->slip_path ? 'ส่งสลิปใหม่' : 'ส่งสลิป' }} ยอด {{ number_format($summary['total'], 2) }} บาท
+                                <x-wirekit::form wire:submit="submitSlip">
+                                    <x-wirekit::stack gap="md">
+                                        <x-wirekit::file-upload wire:model="slip" accept="image/jpeg,image/png" label="สลิปการโอนเงิน (jpg/png ไม่เกิน 5MB)" :error="$errors->first('slip')" required />
+                                        <x-wirekit::datetime-picker placeholder="เลือกวันและเวลา" wire:model="transferred_at" label="วันเวลาที่โอน" max="now" time="input" time-format="24-hour" :error="$errors->first('transferred_at')" required />
+                                        <x-wirekit::input wire:model="slip_reference" label="เลขอ้างอิงในสลิป (ถ้ามี)" />
+                                        <x-wirekit::button type="submit" class="w-full" wire:loading.attr="disabled" wire:target="slip,submitSlip">
+                                            {{ $group->slip_path ? 'ส่งสลิปใหม่' : 'ส่งสลิป' }} ยอด {{ number_format($summary['total'], 2) }} บาท
+                                        </x-wirekit::button>
+                                    </x-wirekit::stack>
+                                </x-wirekit::form>
+                            @else
+                                <x-wirekit::text size="sm" intent="muted">ชำระเงินสดหรือโอนที่จุดลงทะเบียนในวันงาน ยอด <x-wirekit::text as="strong" size="inherit" weight="semibold" intent="default">{{ number_format($summary['total'], 2) }} บาท</x-wirekit::text> เจ้าหน้าที่จะบันทึกการรับเงินตอนเช็กอิน</x-wirekit::text>
+                                <x-wirekit::button class="w-full" wire:click="chooseOnsite" :disabled="$group->payment_method?->value === 'onsite'">
+                                    {{ $group->payment_method?->value === 'onsite' ? 'เลือกชำระหน้างานแล้ว' : 'ยืนยันชำระหน้างาน' }}
                                 </x-wirekit::button>
-                            </form>
-                        @else
-                            <p class="text-sm text-slate-600">ชำระเงินสดหรือโอนที่จุดลงทะเบียนในวันงาน ยอด <b>{{ number_format($summary['total'], 2) }} บาท</b> เจ้าหน้าที่จะบันทึกการรับเงินตอนเช็กอิน</p>
-                            <x-wirekit::button class="w-full" wire:click="chooseOnsite" :disabled="$group->payment_method?->value === 'onsite'">
-                                {{ $group->payment_method?->value === 'onsite' ? 'เลือกชำระหน้างานแล้ว' : 'ยืนยันชำระหน้างาน' }}
-                            </x-wirekit::button>
-                        @endif
+                            @endif
+                        </x-wirekit::stack>
                     </x-wirekit::card.body>
                 </x-wirekit::card>
             @endif
@@ -107,13 +105,15 @@
             @if ($group->slip_path)
                 <x-wirekit::card>
                     <x-wirekit::card.body>
-                        <div class="mb-2 text-sm font-medium">สลิปที่ส่งล่าสุด · {{ $group->slip_submitted_at?->format('d/m/Y H:i') }}</div>
-                        <a href="{{ route('files.slip', $group) }}" target="_blank">
-                            <img src="{{ route('files.slip', $group) }}?v={{ $group->updated_at->timestamp }}" class="max-h-72 rounded-lg border border-slate-200" alt="สลิป">
-                        </a>
+                        <x-wirekit::stack gap="sm">
+                            <x-wirekit::text size="sm" weight="medium">สลิปที่ส่งล่าสุด · {{ $group->slip_submitted_at?->format('d/m/Y H:i') }}</x-wirekit::text>
+                            <x-wirekit::link :href="route('files.slip', $group)" target="_blank" :announce-new-tab="false" underline="none" class="block w-fit">
+                                <x-wirekit::image :src="route('files.slip', $group).'?v='.$group->updated_at->timestamp" alt="สลิป" rounded class="max-h-72 w-fit border border-(--color-wk-border)" />
+                            </x-wirekit::link>
+                        </x-wirekit::stack>
                     </x-wirekit::card.body>
                 </x-wirekit::card>
             @endif
-        </div>
-    </div>
-</div>
+        </x-wirekit::stack>
+    </x-wirekit::grid>
+</x-wirekit::stack>

@@ -31,20 +31,30 @@ class FinanceReport
     ];
 
     /**
-     * @param  array{date_from?: ?string, date_to?: ?string, university_id?: ?string, method?: ?string, status?: ?string, only_new?: bool}  $filters
+     * University and status take one value or a list of them; an empty list means all.
+     *
+     * @param  array{date_from?: ?string, date_to?: ?string, university_id?: string|int|array<int, string|int>|null, method?: ?string, status?: string|array<int, string>|null, only_new?: bool}  $filters
      */
     public static function query(array $filters): Builder
     {
         $from = filled($filters['date_from'] ?? null) ? Carbon::parse($filters['date_from'])->startOfDay() : null;
         $to = filled($filters['date_to'] ?? null) ? Carbon::parse($filters['date_to'])->endOfDay() : null;
-        $status = $filters['status'] ?? null;
+        $universityIds = self::listOf($filters['university_id'] ?? null);
+        $statuses = self::listOf($filters['status'] ?? null);
+
+        // No status chosen: every paid status, plus unpaid on-site groups unless a date range is set
+        // (they have no payment date to fall inside it).
+        $paidStatuses = $statuses === []
+            ? PaymentStatus::paid()
+            : array_map(PaymentStatus::from(...), array_values(array_intersect($statuses, ['approved', 'onsite_paid'])));
+        $includesOnsitePending = $statuses === [] ? (! $from && ! $to) : in_array('onsite_pending', $statuses, true);
 
         return Participant::query()
-            ->whereHas('group', function (Builder $g) use ($filters, $from, $to, $status) {
-                $g->when($filters['university_id'] ?? null, fn ($q, $id) => $q->where('university_id', $id))
+            ->whereHas('group', function (Builder $g) use ($filters, $from, $to, $universityIds, $paidStatuses, $includesOnsitePending) {
+                $g->when($universityIds !== [], fn ($q) => $q->whereIn('university_id', $universityIds))
                     ->when($filters['method'] ?? null, fn ($q, $m) => $q->where('payment_method', $m));
 
-                $paid = fn ($q) => $q->whereIn('payment_status', $status ? [PaymentStatus::from($status)] : PaymentStatus::paid())
+                $paid = fn ($q) => $q->whereIn('payment_status', $paidStatuses)
                     ->when($from || $to, fn ($q) => $q->where(function ($w) use ($from, $to) {
                         $w->where(fn ($a) => $a->where('payment_status', PaymentStatus::Approved)
                             ->when($from, fn ($x) => $x->where('approved_at', '>=', $from))
@@ -55,14 +65,20 @@ class FinanceReport
                     }));
                 $onsitePending = fn ($q) => $q->where('payment_method', PaymentMethod::Onsite)->where('payment_status', PaymentStatus::Pending);
 
-                // Unpaid on-site groups have no payment date, so a date range leaves them out of "all statuses".
-                match ($status) {
-                    'onsite_pending' => $g->where($onsitePending),
-                    'approved', 'onsite_paid' => $g->where($paid),
-                    default => $g->where(fn ($w) => $w->where($paid)->when(! $from && ! $to, fn ($w) => $w->orWhere($onsitePending))),
-                };
+                $g->where(fn ($w) => $w
+                    ->when($paidStatuses !== [], fn ($w) => $w->where($paid))
+                    ->when($includesOnsitePending, fn ($w) => $w->orWhere($onsitePending))
+                    ->when($paidStatuses === [] && ! $includesOnsitePending, fn ($w) => $w->whereRaw('1 = 0')));
             })
             ->when($filters['only_new'] ?? true, fn ($q) => $q->whereDoesntHave('financeSubmissions'));
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private static function listOf(mixed $value): array
+    {
+        return array_values(array_filter(array_map('strval', (array) $value), fn (string $item): bool => $item !== ''));
     }
 
     public static function create(array $filters, User $user): FinanceSubmission

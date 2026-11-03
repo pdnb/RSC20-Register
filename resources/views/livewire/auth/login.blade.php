@@ -1,19 +1,23 @@
-<div>
-<x-wirekit::card>
-    <x-wirekit::card.body>
-        <h2 class="mb-5 text-base font-semibold text-slate-900">เข้าสู่ระบบผู้ประสานงานมหาวิทยาลัย</h2>
+<x-wirekit::stack gap="md">
+    <x-wirekit::card>
+        <x-wirekit::card.body>
+            <x-wirekit::stack gap="lg">
+                <x-wirekit::heading level="2" size="base">เข้าสู่ระบบผู้ประสานงานมหาวิทยาลัย</x-wirekit::heading>
 
-        <form wire:submit="login" class="space-y-4">
-            <x-wirekit::input wire:model="username" label="ชื่อผู้ใช้" autocomplete="username" required autofocus />
-            <x-wirekit::input wire:model="password" type="password" label="รหัสผ่าน" autocomplete="current-password" required />
-            <x-wirekit::checkbox wire:model="remember" label="จดจำการเข้าสู่ระบบ" />
-            <x-wirekit::button type="submit" class="w-full">เข้าสู่ระบบ</x-wirekit::button>
-        </form>
-    </x-wirekit::card.body>
-</x-wirekit::card>
+                <x-wirekit::form wire:submit="login">
+                    <x-wirekit::stack gap="md">
+                        <x-wirekit::input wire:model="username" label="ชื่อผู้ใช้" autocomplete="username" required autofocus />
+                        <x-wirekit::password-input wire:model="password" label="รหัสผ่าน" autocomplete="current-password" required />
+                        <x-wirekit::checkbox wire:model="remember" label="จดจำการเข้าสู่ระบบ" />
+                        <x-wirekit::button type="submit" class="w-full">เข้าสู่ระบบ</x-wirekit::button>
+                    </x-wirekit::stack>
+                </x-wirekit::form>
+            </x-wirekit::stack>
+        </x-wirekit::card.body>
+    </x-wirekit::card>
 
-<p class="mt-4 text-center text-xs text-slate-500">
-    ยังไม่มีบัญชี? ติดต่อผู้ดูแลระบบ มหาวิทยาลัยราชภัฏสุราษฎร์ธานี ·
-    <a href="{{ route('admin.login') }}" class="text-blue-700 hover:underline">สำหรับผู้ดูแล</a>
-</p>
-</div>
+    <x-wirekit::text size="xs" intent="muted" align="center">
+        ยังไม่มีบัญชี? ติดต่อผู้ดูแลระบบ มหาวิทยาลัยราชภัฏสุราษฎร์ธานี ·
+        <x-wirekit::link :href="route('admin.login')" underline="hover">สำหรับผู้ดูแล</x-wirekit::link>
+    </x-wirekit::text>
+</x-wirekit::stack>

@@ -17,9 +17,9 @@ class FinanceReport extends Component
     public array $filters = [
         'date_from' => '',
         'date_to' => '',
-        'university_id' => '',
+        'university_id' => [],
         'method' => '',
-        'status' => '',
+        'status' => [],
         'only_new' => true,
     ];
 
@@ -28,9 +28,11 @@ class FinanceReport extends Component
         $this->validate([
             'filters.date_from' => ['nullable', 'date'],
             'filters.date_to' => ['nullable', 'date', 'after_or_equal:filters.date_from'],
-            'filters.university_id' => ['nullable', 'exists:universities,id'],
+            'filters.university_id' => ['array'],
+            'filters.university_id.*' => ['exists:universities,id'],
             'filters.method' => ['nullable', 'in:transfer,onsite'],
-            'filters.status' => ['nullable', Rule::in(array_keys(Report::STATUSES))],
+            'filters.status' => ['array'],
+            'filters.status.*' => [Rule::in(array_keys(Report::STATUSES))],
         ], attributes: ['filters.date_to' => 'ถึงวันที่']);
 
         // Creating a submission always takes only participants never submitted before.

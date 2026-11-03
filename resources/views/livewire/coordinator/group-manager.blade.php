@@ -64,7 +64,7 @@
         </x-wirekit::card.header>
         <x-wirekit::card.body>
             @if ($editable)
-                <form wire:submit="saveReceipt">
+                <x-wirekit::form wire:submit="saveReceipt">
                     <x-wirekit::stack gap="md">
                         <x-wirekit::grid cols="1 sm:2" gap="md">
                             <x-wirekit::input wire:model="receipt.name" label="ชื่อผู้รับใบเสร็จ" required />
@@ -75,7 +75,7 @@
                             <x-wirekit::button type="submit" size="sm" wire:loading.attr="disabled" wire:target="saveReceipt">บันทึกข้อมูลใบเสร็จ</x-wirekit::button>
                         </x-wirekit::row>
                     </x-wirekit::stack>
-                </form>
+                </x-wirekit::form>
             @elseif ($group->hasReceiptInfo())
                 <x-wirekit::data-list>
                     <x-wirekit::data-list.item label="ชื่อผู้รับใบเสร็จ" :value="$group->receipt_name" />
@@ -197,7 +197,7 @@
     <x-wirekit::modal name="participant-form" size="xl" dismissible="false">
         <x-wirekit::modal.header>
             <x-wirekit::row gap="sm" wrap>
-                <span>{{ $editingId ? 'แก้ไขรายชื่อ' : 'เพิ่มรายชื่อ' }}</span>
+                <x-wirekit::text as="span" size="inherit" weight="inherit">{{ $editingId ? 'แก้ไขรายชื่อ' : 'เพิ่มรายชื่อ' }}</x-wirekit::text>
                 <x-wirekit::badge size="sm" :intent="$form['section'] === 'executive' ? 'primary' : 'info'">{{ \App\Enums\Section::from($form['section'])->label() }}</x-wirekit::badge>
             </x-wirekit::row>
         </x-wirekit::modal.header>
@@ -206,7 +206,7 @@
             <x-wirekit::stack gap="lg">
                 <x-wirekit::stepper :steps="$wizardSteps" :current="$step" wire:key="participant-stepper-{{ $step }}" />
 
-                <form wire:submit="{{ $step < 3 ? 'nextStep' : 'save' }}" id="participant-form">
+                <x-wirekit::form wire:submit="{{ $step < 3 ? 'nextStep' : 'save' }}" id="participant-form">
                     @if ($step === 1)
                         <x-wirekit::stack gap="md" wire:key="participant-step-1">
                             @if ($form['section'] === 'executive')
@@ -227,9 +227,9 @@
                                 @if ($form['title'] === 'อื่นๆ')
                                     <x-wirekit::input wire:model="form.title_other" label="คำนำหน้า (ระบุ)" required />
                                 @endif
-                                <div @class(['sm:col-span-2' => $form['title'] !== 'อื่นๆ'])>
+                                <x-wirekit::stack gap="none" :class="$form['title'] !== 'อื่นๆ' ? 'sm:col-span-2' : ''">
                                     <x-wirekit::input wire:model="form.full_name" label="ชื่อ-นามสกุล" required />
-                                </div>
+                                </x-wirekit::stack>
                             </x-wirekit::grid>
 
                             <x-wirekit::grid cols="1 sm:2" gap="md">
@@ -250,34 +250,39 @@
                                     :options="\App\Models\Participant::SHIRT_SIZES" />
                             </x-wirekit::grid>
 
-                            <div x-data="{ showSizeChart: false }">
+                            <x-wirekit::stack gap="sm" align="start" x-data="{ showSizeChart: false }">
                                 <x-wirekit::button type="button" size="sm" intent="neutral" surface="ghost" x-on:click="showSizeChart = !showSizeChart">
                                     <x-slot:iconLeft><x-wirekit::icon name="info" size="sm" /></x-slot:iconLeft>
-                                    <span x-text="showSizeChart ? 'ซ่อนตารางไซซ์เสื้อ' : 'ดูตารางไซซ์เสื้อ'">ดูตารางไซซ์เสื้อ</span>
+                                    <x-wirekit::text as="span" size="inherit" weight="inherit" intent="inherit" x-text="showSizeChart ? 'ซ่อนตารางไซซ์เสื้อ' : 'ดูตารางไซซ์เสื้อ'">ดูตารางไซซ์เสื้อ</x-wirekit::text>
                                 </x-wirekit::button>
-                                <img x-show="showSizeChart" x-cloak src="{{ asset('images/shirt-size-chart.png') }}"
-                                    class="mx-auto mt-2 w-full max-w-md rounded-xl" alt="ตารางไซซ์เสื้อโปโลชายและหญิง (รอบอก/ความยาว เป็นนิ้ว)" loading="lazy">
-                            </div>
+                                <x-wirekit::image x-show="showSizeChart" x-cloak :src="asset('images/shirt-size-chart.png')"
+                                    rounded class="mx-auto w-full max-w-md" alt="ตารางไซซ์เสื้อโปโลชายและหญิง (รอบอก/ความยาว เป็นนิ้ว)" />
+                            </x-wirekit::stack>
 
                             <x-wirekit::stack gap="sm">
-                                <x-wirekit::text size="sm" weight="medium">รูปภาพสำหรับทำป้ายชื่อ<span class="ms-0.5 text-(--color-wk-danger-text)" aria-hidden="true">*</span></x-wirekit::text>
+                                <x-wirekit::label required>รูปภาพสำหรับทำป้ายชื่อ</x-wirekit::label>
                                 <x-wirekit::row gap="md" align="start">
-                                    @if ($photo && method_exists($photo, 'temporaryUrl') && in_array(strtolower($photo->getClientOriginalExtension()), ['jpg', 'jpeg', 'png']))
-                                        <img src="{{ $photo->temporaryUrl() }}" class="size-28 shrink-0 rounded-xl object-cover" alt="">
-                                    @elseif ($form['badge_photo_path'] && $editingId)
-                                        <img src="{{ route('files.badge', $editingId) }}?v={{ now()->timestamp }}" class="size-28 shrink-0 rounded-xl object-cover" alt="">
-                                    @else
-                                        <div class="flex size-28 shrink-0 flex-col items-center justify-center gap-1 rounded-xl bg-slate-100 text-xs text-slate-400">
-                                            <x-wirekit::icon name="user" size="lg" />
-                                            ยังไม่มีรูป
-                                        </div>
-                                    @endif
-                                    <div class="min-w-0 flex-1">
+                                    {{-- Fixed-size preview box; the image or the placeholder fills it. --}}
+                                    <div class="size-28 shrink-0 overflow-hidden rounded-xl">
+                                        @if ($photo && method_exists($photo, 'temporaryUrl') && in_array(strtolower($photo->getClientOriginalExtension()), ['jpg', 'jpeg', 'png']))
+                                            <x-wirekit::image :src="$photo->temporaryUrl()" alt="" ratio="1/1" loading="eager" />
+                                        @elseif ($form['badge_photo_path'] && $editingId)
+                                            <x-wirekit::image :src="route('files.badge', $editingId).'?v='.now()->timestamp" alt="" ratio="1/1" loading="eager" />
+                                        @else
+                                            <x-wirekit::center class="h-full bg-(--color-wk-bg-muted)">
+                                                <x-wirekit::stack gap="xs" align="center">
+                                                    <x-wirekit::text as="span" intent="subtle"><x-wirekit::icon name="user" size="lg" /></x-wirekit::text>
+                                                    <x-wirekit::text as="span" size="xs" intent="subtle">ยังไม่มีรูป</x-wirekit::text>
+                                                </x-wirekit::stack>
+                                            </x-wirekit::center>
+                                        @endif
+                                    </div>
+                                    <x-wirekit::stack gap="xs" class="min-w-0 flex-1">
                                         <x-wirekit::file-upload wire:model="photo" accept="image/jpeg,image/png"
                                             hint="jpg/png ไม่เกิน 5MB ระบบจะครอปเป็นสี่เหลี่ยมจัตุรัสให้อัตโนมัติ"
                                             :error="$errors->first('photo')" />
-                                        <div wire:loading wire:target="photo" class="mt-1 text-xs text-slate-500">กำลังอัปโหลด…</div>
-                                    </div>
+                                        <x-wirekit::text size="xs" intent="muted" wire:loading wire:target="photo">กำลังอัปโหลด…</x-wirekit::text>
+                                    </x-wirekit::stack>
                                 </x-wirekit::row>
                             </x-wirekit::stack>
                         </x-wirekit::stack>
@@ -287,15 +292,19 @@
                                 <x-wirekit::checkbox wire:model.live="form.use_group_receipt" label="ใช้ข้อมูลใบเสร็จกลางของมหาวิทยาลัย" />
                                 @if ($form['use_group_receipt'])
                                     @if ($group->hasReceiptInfo())
-                                        <div class="rounded-lg bg-slate-50 p-3 text-sm text-slate-700">
-                                            <div class="font-medium text-slate-900">{{ $group->receipt_name }}</div>
-                                            <div class="font-mono text-xs">{{ \App\Support\ThaiId::format($group->receipt_tax_id) }}</div>
-                                            <div>{{ $group->receipt_address }}</div>
-                                        </div>
+                                        <x-wirekit::card surface="flat" class="bg-(--color-wk-bg-subtle)">
+                                            <x-wirekit::card.body>
+                                                <x-wirekit::stack gap="none">
+                                                    <x-wirekit::text size="sm" weight="medium">{{ $group->receipt_name }}</x-wirekit::text>
+                                                    <x-wirekit::text size="xs" family="mono">{{ \App\Support\ThaiId::format($group->receipt_tax_id) }}</x-wirekit::text>
+                                                    <x-wirekit::text size="sm" intent="muted">{{ $group->receipt_address }}</x-wirekit::text>
+                                                </x-wirekit::stack>
+                                            </x-wirekit::card.body>
+                                        </x-wirekit::card>
                                     @else
                                         <x-wirekit::callout intent="warning">ยังไม่ได้บันทึกข้อมูลใบเสร็จกลาง กรุณาบันทึกที่ส่วน "ข้อมูลสำหรับออกใบเสร็จรับเงิน (ข้อมูลกลาง)" หรือยกเลิกการเลือกเพื่อระบุแยกรายบุคคล</x-wirekit::callout>
                                     @endif
-                                    @error('form.use_group_receipt')<p class="text-xs text-red-600">{{ $message }}</p>@enderror
+                                    @error('form.use_group_receipt')<x-wirekit::text size="xs" intent="danger" role="alert">{{ $message }}</x-wirekit::text>@enderror
                                 @else
                                     <x-wirekit::row gap="sm" justify="between" wrap>
                                         <x-wirekit::text size="sm" variant="muted">ออกใบเสร็จในนามบุคคล</x-wirekit::text>
@@ -312,7 +321,8 @@
                                 @endif
                             </x-wirekit::stack>
 
-                            <div class="rounded-xl border border-slate-200 p-4">
+                            <x-wirekit::card>
+                                <x-wirekit::card.body>
                                 <x-wirekit::data-list>
                                     <x-wirekit::data-list.item label="ผู้เข้าร่วม">
                                         {{ $form['title'] === 'อื่นๆ' ? $form['title_other'] : $form['title'] }}{{ $form['full_name'] }}
@@ -321,29 +331,30 @@
                                     <x-wirekit::data-list.item label="โทรศัพท์" :value="$form['mobile_phone']" />
                                     <x-wirekit::data-list.item label="อาหาร">
                                         {{ $form['food_type'] === 'อื่นๆ' ? $form['food_type_other'] : $form['food_type'] }}
-                                        @if ($form['food_allergy'])<span class="text-red-600">· แพ้ {{ $form['food_allergy'] }}</span>@endif
+                                        @if ($form['food_allergy'])<x-wirekit::text as="span" size="inherit" intent="danger">· แพ้ {{ $form['food_allergy'] }}</x-wirekit::text>@endif
                                     </x-wirekit::data-list.item>
                                     <x-wirekit::data-list.item label="เสื้อ" :value="\App\Models\Participant::SHIRT_SIZES[$form['shirt_size']] ?? '-'" />
                                 </x-wirekit::data-list>
-                            </div>
+                                </x-wirekit::card.body>
+                            </x-wirekit::card>
 
                             @unless ($group->pdpa_accepted_at)
                                 <x-wirekit::callout intent="neutral" :icon="false">
                                     <x-wirekit::stack gap="sm">
-                                        <p>{{ $pdpaText }}</p>
+                                        <x-wirekit::text size="inherit" intent="inherit">{{ $pdpaText }}</x-wirekit::text>
                                         <x-wirekit::checkbox wire:model="pdpa" label="ยินยอมและยืนยัน" />
                                     </x-wirekit::stack>
                                 </x-wirekit::callout>
                             @endunless
-                            @error('pdpa')<p class="text-xs text-red-600">{{ $message }}</p>@enderror
+                            @error('pdpa')<x-wirekit::text size="xs" intent="danger" role="alert">{{ $message }}</x-wirekit::text>@enderror
                         </x-wirekit::stack>
                     @endif
-                </form>
+                </x-wirekit::form>
             </x-wirekit::stack>
         </x-wirekit::modal.body>
 
         <x-wirekit::modal.footer>
-            <div class="mr-auto text-sm text-slate-500">ค่าลงทะเบียน: <span class="font-semibold text-blue-700">{{ number_format($this->formFee, 2) }} บาท</span></div>
+            <x-wirekit::text size="sm" intent="muted" class="mr-auto">ค่าลงทะเบียน: <x-wirekit::text as="span" size="inherit" weight="semibold" intent="accent">{{ number_format($this->formFee, 2) }} บาท</x-wirekit::text></x-wirekit::text>
             @if ($step === 1)
                 <x-wirekit::modal.close>
                     <x-wirekit::button intent="neutral" surface="ghost">ยกเลิก</x-wirekit::button>

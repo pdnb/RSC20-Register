@@ -1,17 +1,10 @@
-<div class="space-y-4">
-    <div class="flex flex-wrap gap-2">
-        @foreach (['submitted' => 'รอตรวจสลิป', 'pending' => 'รอชำระ', 'rejected' => 'สลิปไม่ผ่าน', 'approved' => 'อนุมัติแล้ว', 'onsite_paid' => 'ชำระหน้างานแล้ว', 'all' => 'ทั้งหมด'] as $value => $label)
-            <button type="button" wire:click="$set('status', '{{ $value }}')"
-                @class([
-                    'rounded-full px-3 py-1.5 text-sm',
-                    'bg-blue-700 text-white' => $status === $value,
-                    'bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50' => $status !== $value,
-                ])>
-                {{ $label }}
-                @if ($value !== 'all')<span class="ml-1 opacity-70">{{ $counts[$value] ?? 0 }}</span>@endif
-            </button>
-        @endforeach
-    </div>
+<x-wirekit::stack gap="md">
+    @php
+        $statusOptions = collect(['submitted' => 'รอตรวจสลิป', 'pending' => 'รอชำระ', 'rejected' => 'สลิปไม่ผ่าน', 'approved' => 'อนุมัติแล้ว', 'onsite_paid' => 'ชำระหน้างานแล้ว', 'all' => 'ทั้งหมด'])
+            ->map(fn (string $label, string $value): string => $value === 'all' ? $label : $label.' ('.($counts[$value] ?? 0).')')
+            ->all();
+    @endphp
+    <x-wirekit::segmented-control wire:model.live="status" :options="$statusOptions" :value="$status" size="sm" aria-label="กรองตามสถานะ" />
 
     <x-wirekit::card>
         <x-wirekit::table hoverable stack-below="md">
@@ -29,7 +22,7 @@
             <x-wirekit::table.body>
                 @forelse ($groups as $g)
                     <x-wirekit::table.row wire:key="g-{{ $g->id }}">
-                        <x-wirekit::table.td><a href="{{ route('admin.groups.show', $g) }}" class="text-blue-700 hover:underline">{{ $g->university->name }}</a></x-wirekit::table.td>
+                        <x-wirekit::table.td><x-wirekit::link :href="route('admin.groups.show', $g)" underline="hover">{{ $g->university->name }}</x-wirekit::link></x-wirekit::table.td>
                         <x-wirekit::table.td align="right">{{ $g->participants_count }}</x-wirekit::table.td>
                         <x-wirekit::table.td align="right">{{ number_format($g->total_amount, 2) }}</x-wirekit::table.td>
                         <x-wirekit::table.td>{{ $g->payment_method?->label() ?? '-' }}</x-wirekit::table.td>
@@ -44,7 +37,7 @@
                         </x-wirekit::table.td>
                     </x-wirekit::table.row>
                 @empty
-                    <x-wirekit::table.row><x-wirekit::table.td colspan="7"><span class="text-slate-500">ไม่มีรายการ</span></x-wirekit::table.td></x-wirekit::table.row>
+                    <x-wirekit::table.row><x-wirekit::table.td colspan="7"><x-wirekit::text as="span" size="sm" intent="muted">ไม่มีรายการ</x-wirekit::text></x-wirekit::table.td></x-wirekit::table.row>
                 @endforelse
             </x-wirekit::table.body>
         </x-wirekit::table>
@@ -53,19 +46,33 @@
     <x-wirekit::modal name="review-slip" size="lg" dismissible="false" aria-label="ตรวจสลิป">
         @if ($reviewing)
             <x-wirekit::modal.header>สลิป · {{ $reviewing->university->name }}</x-wirekit::modal.header>
-            <x-wirekit::modal.body class="space-y-4">
-                <dl class="grid grid-cols-2 gap-3 text-sm">
-                    <div><dt class="text-slate-500">ยอดที่ต้องชำระ</dt><dd class="text-lg font-semibold text-blue-800">{{ number_format($reviewing->total_amount, 2) }} ฿</dd></div>
-                    <div><dt class="text-slate-500">วันเวลาที่โอน</dt><dd>{{ $reviewing->transferred_at?->format('d/m/Y H:i') }}</dd></div>
-                    <div><dt class="text-slate-500">เลขอ้างอิง</dt><dd>{{ $reviewing->slip_reference ?: '-' }}</dd></div>
-                    <div><dt class="text-slate-500">สถานะ</dt><dd><x-wirekit::badge size="sm" :intent="$reviewing->payment_status->intent()">{{ $reviewing->payment_status->label() }}</x-wirekit::badge></dd></div>
-                </dl>
-                <a href="{{ route('files.slip', $reviewing) }}" target="_blank">
-                    <img src="{{ route('files.slip', $reviewing) }}?v={{ $reviewing->updated_at->timestamp }}" class="mx-auto max-h-[60vh] rounded-lg border border-slate-200" alt="สลิป">
-                </a>
-                @if ($reviewing->payment_status->value === 'submitted')
-                    <x-wirekit::input wire:model="rejectReason" label="เหตุผล (กรณีไม่ผ่าน)" placeholder="เช่น ยอดเงินไม่ตรง, สลิปไม่ชัด" />
-                @endif
+            <x-wirekit::modal.body>
+                <x-wirekit::stack gap="md">
+                    <x-wirekit::grid cols="2" gap="md">
+                        <x-wirekit::stack gap="none">
+                            <x-wirekit::text size="sm" intent="muted">ยอดที่ต้องชำระ</x-wirekit::text>
+                            <x-wirekit::text size="lg" weight="semibold" intent="accent">{{ number_format($reviewing->total_amount, 2) }} ฿</x-wirekit::text>
+                        </x-wirekit::stack>
+                        <x-wirekit::stack gap="none">
+                            <x-wirekit::text size="sm" intent="muted">วันเวลาที่โอน</x-wirekit::text>
+                            <x-wirekit::text size="sm">{{ $reviewing->transferred_at?->format('d/m/Y H:i') }}</x-wirekit::text>
+                        </x-wirekit::stack>
+                        <x-wirekit::stack gap="none">
+                            <x-wirekit::text size="sm" intent="muted">เลขอ้างอิง</x-wirekit::text>
+                            <x-wirekit::text size="sm">{{ $reviewing->slip_reference ?: '-' }}</x-wirekit::text>
+                        </x-wirekit::stack>
+                        <x-wirekit::stack gap="none" align="start">
+                            <x-wirekit::text size="sm" intent="muted">สถานะ</x-wirekit::text>
+                            <x-wirekit::badge size="sm" :intent="$reviewing->payment_status->intent()">{{ $reviewing->payment_status->label() }}</x-wirekit::badge>
+                        </x-wirekit::stack>
+                    </x-wirekit::grid>
+                    <x-wirekit::link :href="route('files.slip', $reviewing)" target="_blank" :announce-new-tab="false" underline="none" class="block">
+                        <x-wirekit::image :src="route('files.slip', $reviewing).'?v='.$reviewing->updated_at->timestamp" alt="สลิป" rounded loading="eager" class="mx-auto max-h-[60vh] w-fit border border-(--color-wk-border)" />
+                    </x-wirekit::link>
+                    @if ($reviewing->payment_status->value === 'submitted')
+                        <x-wirekit::input wire:model="rejectReason" label="เหตุผล (กรณีไม่ผ่าน)" placeholder="เช่น ยอดเงินไม่ตรง, สลิปไม่ชัด" />
+                    @endif
+                </x-wirekit::stack>
             </x-wirekit::modal.body>
             @if ($reviewing->payment_status->value === 'submitted')
                 <x-wirekit::modal.footer>
@@ -75,4 +82,4 @@
             @endif
         @endif
     </x-wirekit::modal>
-</div>
+</x-wirekit::stack>

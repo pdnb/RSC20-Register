@@ -11,6 +11,7 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
+use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use Livewire\WithFileUploads;
@@ -22,6 +23,22 @@ class Settings extends Component
     use WithFileUploads;
 
     public const BADGE_BACKGROUND_PATH = 'badges/background.jpg';
+
+    /**
+     * The sub-sidebar sections: label, icon, and the field prefixes each one holds.
+     *
+     * @var array<string, array{0: string, 1: string, 2: list<string>}>
+     */
+    private const SECTIONS = [
+        'event' => ['งานและช่วงเวลา', 'calendar', ['settings.event_', 'settings.registration_']],
+        'fees' => ['ค่าลงทะเบียน', 'coins', ['fees.']],
+        'bank' => ['บัญชีรับโอน', 'billing', ['settings.bank_']],
+        'finance' => ['รายงาน / PDPA', 'file-text', ['settings.finance_', 'settings.pdpa_']],
+        'badge' => ['ป้ายชื่อ', 'badge', ['settings.badge_', 'badgeBackground']],
+    ];
+
+    #[Url]
+    public string $section = 'event';
 
     /** @var array<int, string> participant_type_id → fee */
     public array $fees = [];
@@ -59,6 +76,8 @@ class Settings extends Component
                 ...array_fill_keys(array_map(fn ($k) => 'settings.'.$k, $badgeKeys), 'ตำแหน่งบนป้ายชื่อ'),
             ]);
         } catch (ValidationException $e) {
+            $this->setErrorBag($e->validator->errors());
+            $this->section = $this->sectionWithErrors() ?? $this->section;
             $this->dispatch('wirekit:focus-invalid');
 
             throw $e;
@@ -98,28 +117,41 @@ class Settings extends Component
         AuditLog::record('settings.badge_background', null, ['action' => 'removed']);
     }
 
-    /**
-     * Each tab with the count of rejected fields it holds, so an error on a hidden tab is still seen.
-     *
-     * @return list<array{key: string, label: string, badge: int|null, badgeIntent: string}>
-     */
-    private function tabs(): array
+    public function showSection(string $key): void
     {
-        $tabs = [
-            'event' => ['งานและช่วงเวลา', ['settings.event_', 'settings.registration_']],
-            'fees' => ['ค่าลงทะเบียน', ['fees.']],
-            'bank' => ['บัญชีรับโอน', ['settings.bank_']],
-            'finance' => ['รายงาน / PDPA', ['settings.finance_', 'settings.pdpa_']],
-            'badge' => ['ป้ายชื่อ', ['settings.badge_', 'badgeBackground']],
-        ];
+        if (array_key_exists($key, self::SECTIONS)) {
+            $this->section = $key;
+        }
+    }
 
+    /** The first section holding a rejected field, so the field is on screen when focus moves to it. */
+    private function sectionWithErrors(): ?string
+    {
         $errorFields = $this->getErrorBag()->keys();
 
-        return collect($tabs)->map(fn (array $tab, string $key) => [
+        foreach (self::SECTIONS as $key => [, , $prefixes]) {
+            if (collect($errorFields)->contains(fn (string $field) => Str::startsWith($field, $prefixes))) {
+                return $key;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Each section with the count of rejected fields it holds, so an error in a hidden section is still seen.
+     *
+     * @return list<array{key: string, label: string, icon: string, badge: int|null}>
+     */
+    private function sections(): array
+    {
+        $errorFields = $this->getErrorBag()->keys();
+
+        return collect(self::SECTIONS)->map(fn (array $section, string $key) => [
             'key' => $key,
-            'label' => $tab[0],
-            'badge' => collect($errorFields)->filter(fn (string $field) => Str::startsWith($field, $tab[1]))->count() ?: null,
-            'badgeIntent' => 'danger',
+            'label' => $section[0],
+            'icon' => $section[1],
+            'badge' => collect($errorFields)->filter(fn (string $field) => Str::startsWith($field, $section[2]))->count() ?: null,
         ])->values()->all();
     }
 
@@ -128,7 +160,7 @@ class Settings extends Component
         $backgroundPath = Setting::get('badge_background_path');
 
         return view('livewire.admin.settings', [
-            'tabs' => $this->tabs(),
+            'sections' => $this->sections(),
             'types' => ParticipantType::query()->orderBy('sort_order')->get(),
             'badgeBackgroundUrl' => $backgroundPath && Storage::disk('local')->exists($backgroundPath)
                 ? route('admin.badge-background', ['v' => Storage::disk('local')->lastModified($backgroundPath)])

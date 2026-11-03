@@ -7,6 +7,7 @@ use App\Enums\PaymentStatus;
 use App\Http\Controllers\Admin\ExportController;
 use App\Livewire\Admin\CoordinatorAccounts;
 use App\Livewire\Admin\FinanceReport as FinanceReportPage;
+use App\Livewire\Admin\Participants;
 use App\Livewire\Admin\Settings;
 use App\Models\FinanceSubmission;
 use App\Models\ParticipantType;
@@ -118,16 +119,33 @@ class ReportsTest extends TestCase
         $this->assertSame([$transfer->id], $groupsFor(['status' => 'approved']));
         $this->assertSame([$onsitePaid->id], $groupsFor(['status' => 'onsite_paid']));
         $this->assertSame([$onsitePending->id], $groupsFor(['status' => 'onsite_pending', 'date_from' => now()->addWeek()->toDateString()]));
+        $this->assertSame(collect([$transfer->id, $onsitePending->id])->sort()->values()->all(), $groupsFor(['status' => ['approved', 'onsite_pending']]));
+        $this->assertSame(collect([$transfer->id, $onsitePaid->id])->sort()->values()->all(), $groupsFor(['university_id' => [$transfer->university_id, $onsitePaid->university_id]]));
 
         $admin = $this->admin();
         Livewire::actingAs($admin)->test(FinanceReportPage::class)
-            ->set('filters.status', 'onsite_pending')
+            ->set('filters.status', ['onsite_pending'])
             ->call('create')
             ->assertHasNoErrors();
 
         $submission = FinanceSubmission::query()->sole();
         $this->assertSame([$onsitePending->id], $submission->participants->pluck('registration_group_id')->unique()->values()->all());
         $this->actingAs($admin)->get(route('admin.finance.download', [$submission, 'pdf']))->assertOk();
+    }
+
+    public function test_participants_page_filters_by_several_universities_and_types(): void
+    {
+        $surat = $this->participant($this->group($this->university('มหาวิทยาลัยราชภัฏสุราษฎร์ธานี')));
+        $phuket = $this->participant($this->group($this->university('มหาวิทยาลัยราชภัฏภูเก็ต')), ParticipantType::STAFF);
+        $yala = $this->participant($this->group($this->university('มหาวิทยาลัยราชภัฏยะลา')));
+
+        $page = Livewire::actingAs($this->admin())->test(Participants::class)
+            ->set('university', [(string) $surat->group->university_id, (string) $phuket->group->university_id]);
+
+        $page->assertSee($surat->code)->assertSee($phuket->code)->assertDontSee($yala->code);
+
+        $page->set('type', [(string) $phuket->participant_type_id])
+            ->assertSee($phuket->code)->assertDontSee($surat->code)->assertDontSee($yala->code);
     }
 
     public function test_excel_exports_download(): void
@@ -174,6 +192,17 @@ class ReportsTest extends TestCase
         Storage::disk('local')->assertMissing(Settings::BADGE_BACKGROUND_PATH);
 
         $this->actingAs($this->coordinator())->get(route('admin.badge-background'))->assertForbidden();
+    }
+
+    public function test_settings_save_opens_the_section_holding_a_rejected_field(): void
+    {
+        $page = Livewire::actingAs($this->admin())->test(Settings::class)
+            ->assertSet('section', 'event');
+
+        $page->set('fees', array_map(fn () => '-5', $page->get('fees')))
+            ->call('save')
+            ->assertHasErrors('fees.*')
+            ->assertSet('section', 'fees');
     }
 
     public function test_admin_issues_coordinator_accounts_for_all_universities(): void

@@ -22,11 +22,13 @@ class Participants extends Component
     #[Url]
     public string $search = '';
 
+    /** @var array<int, string> university ids; empty means all */
     #[Url]
-    public string $university = '';
+    public array $university = [];
 
+    /** @var array<int, string> participant type ids; empty means all */
     #[Url]
-    public string $type = '';
+    public array $type = [];
 
     /** @var array<int, string> participant id → revealed ID number */
     public array $revealed = [];
@@ -53,8 +55,8 @@ class Participants extends Component
             'participants' => Participant::query()->with(['group.university', 'type'])
                 ->when($term !== '', fn ($q) => $q->where(fn ($w) => $w->where('full_name', 'like', "%{$term}%")
                     ->orWhere('mobile_phone', 'like', "%{$term}%")->orWhere('code', 'like', "%{$term}%")))
-                ->when($this->university, fn ($q) => $q->whereHas('group', fn ($g) => $g->where('university_id', $this->university)))
-                ->when($this->type, fn ($q) => $q->where('participant_type_id', $this->type))
+                ->when($this->university !== [], fn ($q) => $q->whereHas('group', fn ($g) => $g->whereIn('university_id', $this->university)))
+                ->when($this->type !== [], fn ($q) => $q->whereIn('participant_type_id', $this->type))
                 ->orderBy('id')->paginate(25),
             'universities' => University::query()->orderBy('sort_order')->pluck('name', 'id'),
             'types' => ParticipantType::query()->orderBy('sort_order')->pluck('name_th', 'id'),
