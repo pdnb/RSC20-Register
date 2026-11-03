@@ -8,7 +8,10 @@ use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
 use App\Models\Participant;
 use App\Models\RegistrationGroup;
+use App\Models\Setting;
+use App\Support\Images;
 use App\Support\ThaiId;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
@@ -25,7 +28,11 @@ class ExportController extends Controller
         'finance' => 'สรุปการเงินรายมหาวิทยาลัย',
         'checkins' => 'รายชื่อการเช็กอิน',
         'badges' => 'รูปป้ายชื่อ (ZIP + CSV สำหรับ mail-merge)',
+        'badge_pdf' => 'ป้ายชื่อพร้อมพิมพ์ (PDF)',
     ];
+
+    /** Badge page width; the height follows the background's aspect ratio. */
+    private const BADGE_WIDTH_MM = 100;
 
     public function index()
     {
@@ -41,6 +48,10 @@ class ExportController extends Controller
 
         if ($type === 'badges') {
             return $this->badges();
+        }
+
+        if ($type === 'badge_pdf') {
+            return $this->badgePdf();
         }
 
         $sheets = match ($type) {
@@ -173,5 +184,49 @@ class ExportController extends Controller
         $zip->close();
 
         return response()->download($path, 'rsc20-badges-'.now()->format('Ymd-Hi').'.zip')->deleteFileAfterSend();
+    }
+
+    /** One badge per page: uploaded background, photo cropped into the frame, name/position/university below. */
+    private function badgePdf()
+    {
+        $disk = Storage::disk('local');
+        $background = Setting::get('badge_background_path');
+        abort_unless($background && $disk->exists($background), 422, 'กรุณาอัปโหลดพื้นหลังป้ายชื่อที่หน้าตั้งค่าก่อน');
+
+        [$imageWidth, $imageHeight] = getimagesizefromstring($disk->get($background));
+        $pageWidth = self::BADGE_WIDTH_MM / 25.4 * 72;
+        $pageHeight = $pageWidth * $imageHeight / $imageWidth;
+        $percent = fn (string $key, float $of) => round((float) Setting::get($key) / 100 * $of, 2);
+
+        $box = [
+            'left' => $percent('badge_photo_left', $pageWidth),
+            'top' => $percent('badge_photo_top', $pageHeight),
+            'width' => $percent('badge_photo_width', $pageWidth),
+            'height' => $percent('badge_photo_height', $pageHeight),
+        ];
+        $photoWidth = 600;
+        $photoHeight = (int) round($photoWidth * $box['height'] / max($box['width'], 1));
+
+        $badges = $this->participants()->map(fn (Participant $p) => [
+            'name' => $p->displayName(),
+            'position' => $p->position,
+            'university' => $p->group->university->name,
+            'photo' => $p->badge_photo_path && $disk->exists($p->badge_photo_path)
+                ? 'data:image/jpeg;base64,'.base64_encode(Images::cover($disk->path($p->badge_photo_path), $photoWidth, $photoHeight))
+                : null,
+        ]);
+
+        $pdf = Pdf::loadView('pdf.badges', [
+            'badges' => $badges,
+            'background' => 'data:image/jpeg;base64,'.base64_encode($disk->get($background)),
+            'page' => ['width' => round($pageWidth, 2), 'height' => round($pageHeight, 2)],
+            'box' => $box,
+            'textTop' => $percent('badge_text_top', $pageHeight),
+        ])->setPaper([0, 0, $pageWidth, $pageHeight]);
+
+        return response($pdf->output(), 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="rsc20-badges-'.now()->format('Ymd-Hi').'.pdf"',
+        ]);
     }
 }

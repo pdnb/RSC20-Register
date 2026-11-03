@@ -7,11 +7,14 @@ use App\Enums\PaymentStatus;
 use App\Http\Controllers\Admin\ExportController;
 use App\Livewire\Admin\CoordinatorAccounts;
 use App\Livewire\Admin\FinanceReport as FinanceReportPage;
+use App\Livewire\Admin\Settings;
 use App\Models\FinanceSubmission;
 use App\Models\ParticipantType;
 use App\Models\RegistrationGroup;
+use App\Models\Setting;
 use App\Models\User;
 use App\Services\FinanceReport;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Intervention\Image\Encoders\JpegEncoder;
 use Intervention\Image\Laravel\Facades\Image;
@@ -131,12 +134,46 @@ class ReportsTest extends TestCase
     {
         $this->paidTransferGroup('มหาวิทยาลัยราชภัฏสุราษฎร์ธานี');
         $admin = $this->admin();
+        Livewire::actingAs($admin)->test(Settings::class)->set('badgeBackground', UploadedFile::fake()->image('bg.png', 1003, 1568));
 
         foreach (array_keys(ExportController::TYPES) as $type) {
             $this->actingAs($admin)->get(route('admin.exports.download', $type))->assertOk()->assertDownload();
         }
         $this->actingAs($admin)->get(route('admin.exports.download', ['participants', 'with_id' => 1]))->assertOk();
         $this->assertDatabaseHas('audit_logs', ['action' => 'export.participants']);
+    }
+
+    public function test_admin_uploads_badge_background_and_downloads_badge_pdf(): void
+    {
+        $group = $this->group();
+        $withPhoto = $this->participant($group);
+        Storage::disk('local')->put('badges/'.$withPhoto->code.'.jpg', (string) Image::createImage(600, 600)->fill('aabbcc')->encode(new JpegEncoder));
+        $withPhoto->forceFill(['badge_photo_path' => 'badges/'.$withPhoto->code.'.jpg'])->saveQuietly();
+        $this->participant($group);
+        $admin = $this->admin();
+
+        $this->actingAs($admin)->get(route('admin.exports.download', 'badge_pdf'))->assertStatus(422);
+
+        Livewire::actingAs($admin)->test(Settings::class)
+            ->set('badgeBackground', UploadedFile::fake()->image('bg.png', 1003, 1568))
+            ->assertHasNoErrors();
+
+        Storage::disk('local')->assertExists(Settings::BADGE_BACKGROUND_PATH);
+        $this->assertSame(Settings::BADGE_BACKGROUND_PATH, Setting::get('badge_background_path'));
+        $this->actingAs($admin)->get(route('admin.badge-background'))->assertOk();
+
+        $response = $this->actingAs($admin)->get(route('admin.exports.download', 'badge_pdf'))->assertOk()->assertDownload();
+        $this->assertSame('application/pdf', $response->headers->get('Content-Type'));
+    }
+
+    public function test_badge_background_rejects_non_images_and_non_admins(): void
+    {
+        Livewire::actingAs($this->admin())->test(Settings::class)
+            ->set('badgeBackground', UploadedFile::fake()->create('bg.pdf', 10, 'application/pdf'))
+            ->assertHasErrors('badgeBackground');
+        Storage::disk('local')->assertMissing(Settings::BADGE_BACKGROUND_PATH);
+
+        $this->actingAs($this->coordinator())->get(route('admin.badge-background'))->assertForbidden();
     }
 
     public function test_admin_issues_coordinator_accounts_for_all_universities(): void

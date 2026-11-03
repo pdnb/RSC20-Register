@@ -64,6 +64,7 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
     Route::livewire('/coordinators', Admin\CoordinatorAccounts::class)->name('coordinators');
     Route::livewire('/users', Admin\Users::class)->name('users');
     Route::livewire('/settings', Admin\Settings::class)->name('settings');
+    Route::get('/settings/badge-background', [FileController::class, 'badgeBackground'])->name('badge-background');
 
     Route::get('/exports', [ExportController::class, 'index'])->name('exports');
     Route::get('/exports/{type}', [ExportController::class, 'download'])->name('exports.download');

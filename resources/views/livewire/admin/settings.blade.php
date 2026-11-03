@@ -40,6 +40,52 @@
         </x-wirekit::card.body>
     </x-wirekit::card>
 
+    <x-wirekit::card>
+        <x-wirekit::card.header><h2 class="font-semibold">ป้ายชื่อ</h2></x-wirekit::card.header>
+        <x-wirekit::card.body class="grid gap-6 md:grid-cols-[16rem_1fr]">
+            <div>
+                @if ($badgeBackgroundUrl)
+                    <div class="relative overflow-hidden rounded-lg border border-slate-200">
+                        <img src="{{ $badgeBackgroundUrl }}" class="block w-full" alt="พื้นหลังป้ายชื่อ">
+                        <div class="absolute border-2 border-dashed border-red-500 bg-red-500/15"
+                            style="left: {{ (float) $settings['badge_photo_left'] }}%; top: {{ (float) $settings['badge_photo_top'] }}%; width: {{ (float) $settings['badge_photo_width'] }}%; height: {{ (float) $settings['badge_photo_height'] }}%"></div>
+                        <div class="absolute inset-x-[8%] border-t-2 border-dashed border-blue-600 pt-1 text-center text-[10px] font-semibold text-blue-700"
+                            style="top: {{ (float) $settings['badge_text_top'] }}%">ชื่อ · ตำแหน่ง · มหาวิทยาลัย</div>
+                    </div>
+                    <div class="mt-2 flex justify-end">
+                        <x-wirekit::button size="sm" intent="danger" surface="ghost" wire:click="removeBadgeBackground" wire:confirm="ลบพื้นหลังป้ายชื่อ?">ลบพื้นหลัง</x-wirekit::button>
+                    </div>
+                @else
+                    <div class="flex aspect-[2/3] items-center justify-center rounded-lg border border-dashed border-slate-300 text-sm text-slate-400">ยังไม่มีพื้นหลัง</div>
+                @endif
+            </div>
+
+            <div class="space-y-4">
+                <div>
+                    <x-wirekit::file-upload wire:model="badgeBackground" accept="image/jpeg,image/png"
+                        :label="$badgeBackgroundUrl ? 'เปลี่ยนพื้นหลังป้ายชื่อ' : 'อัปโหลดพื้นหลังป้ายชื่อ'"
+                        hint="JPG หรือ PNG แนวตั้ง ไม่เกิน 10 MB — ใช้ขนาดหน้ากระดาษตามสัดส่วนของภาพ"
+                        :error="$errors->first('badgeBackground')" />
+                    <div wire:loading wire:target="badgeBackground" class="mt-1 text-xs text-slate-500">กำลังอัปโหลด…</div>
+                </div>
+
+                <div>
+                    <div class="mb-2 text-sm font-medium text-slate-700">ตำแหน่งกรอบรูป (% ของภาพพื้นหลัง)</div>
+                    <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                        <x-wirekit::input wire:model.live.debounce.400ms="settings.badge_photo_left" type="number" step="0.1" min="0" max="100" label="ซ้าย" suffix="%" :error="$errors->first('settings.badge_photo_left')" />
+                        <x-wirekit::input wire:model.live.debounce.400ms="settings.badge_photo_top" type="number" step="0.1" min="0" max="100" label="บน" suffix="%" :error="$errors->first('settings.badge_photo_top')" />
+                        <x-wirekit::input wire:model.live.debounce.400ms="settings.badge_photo_width" type="number" step="0.1" min="0" max="100" label="กว้าง" suffix="%" :error="$errors->first('settings.badge_photo_width')" />
+                        <x-wirekit::input wire:model.live.debounce.400ms="settings.badge_photo_height" type="number" step="0.1" min="0" max="100" label="สูง" suffix="%" :error="$errors->first('settings.badge_photo_height')" />
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                    <x-wirekit::input wire:model.live.debounce.400ms="settings.badge_text_top" type="number" step="0.1" min="0" max="100" label="ข้อความเริ่มที่ (บน)" suffix="%" :error="$errors->first('settings.badge_text_top')" />
+                </div>
+                <p class="text-xs text-slate-500">กรอบสีแดงคือตำแหน่งรูปผู้เข้าร่วม เส้นสีน้ำเงินคือจุดเริ่มข้อความ ปรับให้ตรงกับพื้นหลังแล้วกด "บันทึกการตั้งค่า" จากนั้นดาวน์โหลด PDF ป้ายชื่อได้ที่เมนู <a href="{{ route('admin.exports') }}" class="text-blue-700 underline">ดาวน์โหลดข้อมูล</a></p>
+            </div>
+        </x-wirekit::card.body>
+    </x-wirekit::card>
+
     <div class="flex justify-end">
         <x-wirekit::button type="submit">บันทึกการตั้งค่า</x-wirekit::button>
     </div>

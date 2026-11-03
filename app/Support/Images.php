@@ -15,6 +15,13 @@ class Images
             ->encode(new JpegEncoder(quality: 85, strip: true));
     }
 
+    /** Crop to exactly $width × $height, e.g. a badge photo into a portrait frame. */
+    public static function cover(string $sourcePath, int $width, int $height): string
+    {
+        return (string) Image::decodePath($sourcePath)->cover($width, $height)
+            ->encode(new JpegEncoder(quality: 85, strip: true));
+    }
+
     /** Shrink to fit inside $max × $max, never enlarging. */
     public static function fit(string $sourcePath, int $max, int $quality = 85): string
     {

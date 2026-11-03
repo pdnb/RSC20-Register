@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Participant;
 use App\Models\RegistrationGroup;
+use App\Models\Setting;
 use App\Support\QrCode;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -27,6 +28,15 @@ class FileController extends Controller
         abort_unless($participant->badge_photo_path && Storage::disk('local')->exists($participant->badge_photo_path), 404);
 
         return Storage::disk('local')->response($participant->badge_photo_path, null, ['Cache-Control' => 'private, max-age=600']);
+    }
+
+    /** Admin-only route; the background is shared by every badge. */
+    public function badgeBackground()
+    {
+        $path = Setting::get('badge_background_path');
+        abort_unless($path && Storage::disk('local')->exists($path), 404);
+
+        return Storage::disk('local')->response($path, null, ['Cache-Control' => 'private, max-age=600']);
     }
 
     public function qr(Request $request, Participant $participant)
