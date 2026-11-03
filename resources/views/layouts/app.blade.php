@@ -8,7 +8,7 @@
         <header class="sticky top-0 z-30 border-b border-slate-200 bg-white">
             <div class="mx-auto flex max-w-6xl items-center gap-3 px-4 py-3">
                 <a href="{{ route('coordinator.dashboard') }}" class="flex items-center gap-2">
-                    <span class="flex size-9 items-center justify-center rounded-xl bg-blue-700 text-sm font-bold text-white">20</span>
+                    <img src="{{ asset('images/logo.webp') }}" alt="" class="size-11 shrink-0 object-contain">
                     <span class="hidden text-sm font-semibold leading-tight text-slate-900 sm:block">สัมมนาสมาพันธ์นักศึกษา<br>มหาวิทยาลัยราชภัฏ ครั้งที่ 20</span>
                 </a>
 
