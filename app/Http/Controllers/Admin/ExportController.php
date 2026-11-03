@@ -71,7 +71,7 @@ class ExportController extends Controller
             $i + 1, $p->code, $p->group->university->name, $p->section->label(), $p->type->name_th, $p->position,
             $p->title, $p->full_name, $p->mobile_phone,
             $withId ? ThaiId::format($p->national_id) : $p->maskedNationalId(),
-            $p->food_type, $p->food_allergy, $p->shirt_size, (float) $p->fee_amount,
+            $p->food_type, $p->food_allergy, $p->shirtSizeLabel(), (float) $p->fee_amount,
             $p->group->payment_status->label(), $p->badge_photo_path ? 'มี' : '-',
         ])->all();
 
@@ -84,8 +84,8 @@ class ExportController extends Controller
     private function receiptsSheet(bool $withId): ArraySheet
     {
         $rows = $this->participants()->map(fn (Participant $p, $i) => [
-            $i + 1, $p->code, $p->receipt_name, $p->receipt_address,
-            $withId ? ThaiId::format($p->receipt_tax_id) : ThaiId::mask($p->receipt_tax_id),
+            $i + 1, $p->code, $p->receiptName(), $p->receiptAddress(),
+            $withId ? ThaiId::format($p->receiptTaxId()) : ThaiId::mask($p->receiptTaxId()),
             $p->group->university->name, $p->type->name_th, (float) $p->fee_amount,
             $p->group->payment_method?->label(), $p->group->payment_status->label(),
             $p->group->paidAt()?->format('d/m/Y H:i'), $p->receipt_no,
@@ -100,7 +100,7 @@ class ExportController extends Controller
     private function shirtSheets(): array
     {
         $all = $this->participants();
-        $sizes = Participant::SHIRT_SIZES;
+        $sizes = array_keys(Participant::SHIRT_SIZES);
 
         $byUniversity = $all->groupBy(fn ($p) => $p->group->university->name)->map(fn ($ps, $name) => [
             $name, ...array_map(fn ($s) => $ps->where('shirt_size', $s)->count(), $sizes), $ps->count(),
@@ -108,9 +108,9 @@ class ExportController extends Controller
         $byUniversity[] = ['รวม', ...array_map(fn ($s) => $all->where('shirt_size', $s)->count(), $sizes), $all->count()];
 
         return [
-            new ArraySheet('สรุปไซซ์เสื้อ', ['มหาวิทยาลัย', ...$sizes, 'รวม'], $byUniversity),
+            new ArraySheet('สรุปไซซ์เสื้อ', ['มหาวิทยาลัย', ...array_values(Participant::SHIRT_SIZES), 'รวม'], $byUniversity),
             new ArraySheet('รายชื่อ', ['รหัส', 'ชื่อ-นามสกุล', 'มหาวิทยาลัย', 'ไซซ์เสื้อ'],
-                $all->map(fn ($p) => [$p->code, $p->displayName(), $p->group->university->name, $p->shirt_size])->all()),
+                $all->map(fn ($p) => [$p->code, $p->displayName(), $p->group->university->name, $p->shirtSizeLabel()])->all()),
         ];
     }
 

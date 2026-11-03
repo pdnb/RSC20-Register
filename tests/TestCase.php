@@ -94,7 +94,7 @@ abstract class TestCase extends BaseTestCase
             'mobile_phone' => '0812345678',
             'national_id' => $id,
             'food_type' => 'อาหารทั่วไป',
-            'shirt_size' => 'M',
+            'shirt_size' => 'M-M',
             'receipt_name' => 'นายทดสอบ ระบบ',
             'receipt_address' => '272 ถ.สุราษฎร์-นาสาร อ.เมือง จ.สุราษฎร์ธานี',
             'receipt_tax_id' => $id,

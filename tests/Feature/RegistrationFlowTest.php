@@ -38,7 +38,10 @@ class RegistrationFlowTest extends TestCase
             ->set('form.national_id', $id)
             ->set('form.food_type', 'อาหารฮาลาล')
             ->set('form.food_allergy', 'กุ้ง')
-            ->set('form.shirt_size', 'XL')
+            ->set('form.shirt_size', 'M-XL')
+            ->set('form.use_group_receipt', false)
+            ->set('form.receipt_name', 'ผศ.ดร.สมชาย ใจดี')
+            ->set('form.receipt_tax_id', $id)
             ->set('form.receipt_address', 'สุราษฎร์ธานี')
             ->set('photo', UploadedFile::fake()->image('me.png', 800, 1000))
             ->set('pdpa', true)
@@ -63,7 +66,8 @@ class RegistrationFlowTest extends TestCase
             ->set('form.title', 'นางสาว')
             ->set('form.mobile_phone', '0899999999')
             ->set('form.national_id', $this->nextNationalId())
-            ->set('form.receipt_same', false)
+            ->set('form.shirt_size', 'F-S')
+            ->set('form.use_group_receipt', false)
             ->set('form.receipt_name', 'องค์การนักศึกษา')
             ->set('form.receipt_tax_id', $this->nextNationalId())
             ->set('form.receipt_address', 'สุราษฎร์ธานี')
@@ -71,6 +75,100 @@ class RegistrationFlowTest extends TestCase
             ->assertHasNoErrors();
 
         $this->assertSame('4000.00', RegistrationGroup::query()->first()->total_amount);
+    }
+
+    public function test_badge_photo_accepts_up_to_5mb(): void
+    {
+        $component = Livewire::actingAs($this->coordinator())->test(GroupManager::class)->call('create', 'member');
+
+        $component->set('photo', UploadedFile::fake()->image('ok.jpg')->size(5120))
+            ->call('save')
+            ->assertHasNoErrors('photo');
+
+        $component->set('photo', UploadedFile::fake()->image('big.jpg')->size(5121))
+            ->call('save')
+            ->assertHasErrors(['photo' => 'max']);
+    }
+
+    public function test_participants_inherit_shared_receipt_info_and_follow_its_changes(): void
+    {
+        $user = $this->coordinator();
+        $taxId = $this->nextNationalId();
+
+        $component = Livewire::actingAs($user)->test(GroupManager::class)
+            ->set('receipt.name', 'มหาวิทยาลัยราชภัฏสุราษฎร์ธานี')
+            ->set('receipt.address', '272 ถ.สุราษฎร์-นาสาร')
+            ->set('receipt.tax_id', '1234567890123')
+            ->call('saveReceipt')
+            ->assertHasErrors(['receipt.tax_id'])
+            ->assertSee('เลขประจำตัวผู้เสียภาษีไม่ถูกต้อง')
+            ->set('receipt.tax_id', $taxId)
+            ->call('saveReceipt')
+            ->assertHasNoErrors()
+            ->call('create', 'member')
+            ->set('form.full_name', 'สมหญิง เรียนดี')
+            ->set('form.mobile_phone', '0899999999')
+            ->set('form.national_id', $this->nextNationalId())
+            ->set('form.shirt_size', 'F-S')
+            ->set('pdpa', true)
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $p = Participant::query()->firstOrFail();
+        $this->assertNull($p->receipt_name);
+        $this->assertNull($p->receipt_tax_id);
+        $this->assertSame('มหาวิทยาลัยราชภัฏสุราษฎร์ธานี', $p->receiptName());
+        $this->assertSame('272 ถ.สุราษฎร์-นาสาร', $p->receiptAddress());
+        $this->assertSame($taxId, $p->receiptTaxId());
+
+        $component->set('receipt.name', 'สำนักงานอธิการบดี')->call('saveReceipt')->assertHasNoErrors();
+
+        $this->assertSame('สำนักงานอธิการบดี', $p->fresh()->receiptName());
+    }
+
+    public function test_participant_own_receipt_info_overrides_shared_info(): void
+    {
+        $ownTaxId = $this->nextNationalId();
+
+        Livewire::actingAs($this->coordinator())->test(GroupManager::class)
+            ->set('receipt.name', 'มหาวิทยาลัยราชภัฏสุราษฎร์ธานี')
+            ->set('receipt.address', 'สุราษฎร์ธานี')
+            ->set('receipt.tax_id', $this->nextNationalId())
+            ->call('saveReceipt')
+            ->call('create', 'member')
+            ->set('form.full_name', 'สมหญิง เรียนดี')
+            ->set('form.mobile_phone', '0899999999')
+            ->set('form.national_id', $this->nextNationalId())
+            ->set('form.shirt_size', 'F-S')
+            ->set('form.use_group_receipt', false)
+            ->set('form.receipt_name', 'องค์การนักศึกษา')
+            ->set('form.receipt_tax_id', $ownTaxId)
+            ->set('form.receipt_address', 'อาคารกิจการนักศึกษา')
+            ->set('pdpa', true)
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $p = Participant::query()->firstOrFail();
+        $this->assertFalse($p->usesGroupReceipt());
+        $this->assertSame('องค์การนักศึกษา', $p->receiptName());
+        $this->assertSame('อาคารกิจการนักศึกษา', $p->receiptAddress());
+        $this->assertSame($ownTaxId, $p->receiptTaxId());
+    }
+
+    public function test_using_shared_receipt_info_fails_when_group_has_none(): void
+    {
+        Livewire::actingAs($this->coordinator())->test(GroupManager::class)
+            ->call('create', 'member')
+            ->set('form.full_name', 'สมหญิง เรียนดี')
+            ->set('form.mobile_phone', '0899999999')
+            ->set('form.national_id', $this->nextNationalId())
+            ->set('form.shirt_size', 'F-S')
+            ->set('pdpa', true)
+            ->call('save')
+            ->assertHasErrors(['form.use_group_receipt'])
+            ->assertSee('กรุณาบันทึกข้อมูลใบเสร็จกลางของมหาวิทยาลัยก่อน');
+
+        $this->assertSame(0, Participant::query()->count());
     }
 
     public function test_validation_rejects_bad_and_duplicate_ids(): void
@@ -83,10 +181,11 @@ class RegistrationFlowTest extends TestCase
             ->set('form.full_name', 'x')
             ->set('form.mobile_phone', '12345')
             ->set('form.national_id', '1234567890123')
+            ->set('form.use_group_receipt', false)
             ->set('form.receipt_address', 'x')
             ->set('pdpa', true)
             ->call('save')
-            ->assertHasErrors(['form.mobile_phone', 'form.national_id'])
+            ->assertHasErrors(['form.mobile_phone', 'form.national_id', 'form.receipt_name', 'form.receipt_tax_id'])
             ->set('form.mobile_phone', '0812345678')
             ->set('form.national_id', $taken->national_id)
             ->call('save')
@@ -105,6 +204,83 @@ class RegistrationFlowTest extends TestCase
             ->set('form.receipt_address', 'x')
             ->call('save')
             ->assertHasErrors('pdpa');
+    }
+
+    public function test_wizard_next_step_validates_only_the_current_step(): void
+    {
+        Livewire::actingAs($this->coordinator())->test(GroupManager::class)
+            ->call('create', 'member')
+            ->call('nextStep')
+            ->assertHasErrors(['form.full_name', 'form.mobile_phone', 'form.national_id'])
+            ->assertHasNoErrors(['form.shirt_size', 'pdpa'])
+            ->assertSet('step', 1)
+            ->set('form.full_name', 'สมหญิง เรียนดี')
+            ->set('form.mobile_phone', '089-999-9999')
+            ->set('form.national_id', $this->nextNationalId())
+            ->call('nextStep')
+            ->assertHasNoErrors()
+            ->assertSet('step', 2)
+            ->call('nextStep')
+            ->assertHasErrors(['form.shirt_size'])
+            ->assertSet('step', 2)
+            ->call('goToStep', 1)
+            ->assertSet('step', 1)
+            ->call('goToStep', 3)
+            ->assertSet('step', 1);
+    }
+
+    public function test_save_returns_to_the_first_step_with_errors(): void
+    {
+        Livewire::actingAs($this->coordinator())->test(GroupManager::class)
+            ->call('create', 'member')
+            ->set('step', 3)
+            ->set('form.shirt_size', 'F-S')
+            ->set('pdpa', true)
+            ->call('save')
+            ->assertHasErrors(['form.full_name'])
+            ->assertSet('step', 1);
+    }
+
+    public function test_receipt_can_be_filled_from_participant(): void
+    {
+        $id = $this->nextNationalId();
+
+        Livewire::actingAs($this->coordinator())->test(GroupManager::class)
+            ->call('create', 'executive')
+            ->set('form.title', 'อื่นๆ')
+            ->set('form.title_other', 'พล.ต.ท.')
+            ->set('form.full_name', 'สมชาย ใจดี')
+            ->set('form.national_id', $id)
+            ->call('fillReceiptFromParticipant')
+            ->assertSet('form.use_group_receipt', false)
+            ->assertSet('form.receipt_name', 'พล.ต.ท.สมชาย ใจดี')
+            ->assertSet('form.receipt_tax_id', $id);
+    }
+
+    public function test_save_and_add_another_keeps_form_open_for_same_section(): void
+    {
+        Livewire::actingAs($this->coordinator())->test(GroupManager::class)
+            ->call('create', 'member')
+            ->set('form.position', 'บุคลากร')
+            ->set('form.full_name', 'สมหญิง เรียนดี')
+            ->set('form.mobile_phone', '0899999999')
+            ->set('form.national_id', $this->nextNationalId())
+            ->set('form.shirt_size', 'F-S')
+            ->set('form.use_group_receipt', false)
+            ->set('form.receipt_name', 'สมหญิง เรียนดี')
+            ->set('form.receipt_tax_id', $this->nextNationalId())
+            ->set('form.receipt_address', 'สุราษฎร์ธานี')
+            ->set('pdpa', true)
+            ->set('step', 3)
+            ->call('save', true)
+            ->assertHasNoErrors()
+            ->assertNotDispatched('wirekit-modal-close')
+            ->assertSet('step', 1)
+            ->assertSet('editingId', null)
+            ->assertSet('form.section', 'member')
+            ->assertSet('form.full_name', '');
+
+        $this->assertSame(1, Participant::query()->count());
     }
 
     public function test_coordinator_only_sees_own_university_files(): void
@@ -128,6 +304,7 @@ class RegistrationFlowTest extends TestCase
         $group->refresh()->forceFill(['payment_status' => PaymentStatus::Approved])->save();
 
         Livewire::actingAs($user)->test(GroupManager::class)->call('create', 'member')->assertForbidden();
+        Livewire::actingAs($user)->test(GroupManager::class)->call('saveReceipt')->assertForbidden();
 
         $group->forceFill(['payment_status' => PaymentStatus::Pending])->save();
         Setting::put(['registration_closes_at' => now()->subDay()->toDateTimeString()]);

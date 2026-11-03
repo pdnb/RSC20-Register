@@ -50,7 +50,7 @@
         </x-wirekit::table>
     </x-wirekit::card>
 
-    <x-wirekit::modal name="review-slip" size="lg" aria-label="ตรวจสลิป">
+    <x-wirekit::modal name="review-slip" size="lg" dismissible="false" aria-label="ตรวจสลิป">
         @if ($reviewing)
             <x-wirekit::modal.header>สลิป · {{ $reviewing->university->name }}</x-wirekit::modal.header>
             <x-wirekit::modal.body class="space-y-4">

@@ -64,7 +64,7 @@
         </x-wirekit::table>
     </x-wirekit::card>
 
-    <x-wirekit::modal name="coordinator-form">
+    <x-wirekit::modal name="coordinator-form" dismissible="false">
         <x-wirekit::modal.header>สร้างบัญชีผู้ประสานงาน</x-wirekit::modal.header>
         <x-wirekit::modal.body>
             <form wire:submit="save" id="coordinator-form" class="space-y-4">

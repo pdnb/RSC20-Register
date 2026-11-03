@@ -17,7 +17,25 @@ class Participant extends Model
 
     public const FOOD_TYPES = ['อาหารทั่วไป', 'อาหารมังสวิรัติ', 'อาหารเจ', 'อาหารฮาลาล'];
 
-    public const SHIRT_SIZES = ['SS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL'];
+    /** Stored code → label (M- = men's polo, F- = women's polo) */
+    public const SHIRT_SIZES = [
+        'M-SS' => 'เสื้อโปโลชาย SS',
+        'M-S' => 'เสื้อโปโลชาย S',
+        'M-M' => 'เสื้อโปโลชาย M',
+        'M-L' => 'เสื้อโปโลชาย L',
+        'M-XL' => 'เสื้อโปโลชาย XL',
+        'M-2XL' => 'เสื้อโปโลชาย 2XL',
+        'M-3XL' => 'เสื้อโปโลชาย 3XL',
+        'M-4XL' => 'เสื้อโปโลชาย 4XL',
+        'M-5XL' => 'เสื้อโปโลชาย 5XL',
+        'F-SS' => 'เสื้อโปโลหญิง SS',
+        'F-S' => 'เสื้อโปโลหญิง S',
+        'F-M' => 'เสื้อโปโลหญิง M',
+        'F-L' => 'เสื้อโปโลหญิง L',
+        'F-XL' => 'เสื้อโปโลหญิง XL',
+        'F-2XL' => 'เสื้อโปโลหญิง 2XL',
+        'F-3XL' => 'เสื้อโปโลหญิง 3XL',
+    ];
 
     /** Section 2 position → participant type code */
     public const MEMBER_POSITIONS = ['บุคลากร' => ParticipantType::STAFF, 'นักศึกษา' => ParticipantType::STUDENT];
@@ -65,6 +83,32 @@ class Participant extends Model
     public function displayName(): string
     {
         return $this->title.$this->full_name;
+    }
+
+    public function shirtSizeLabel(): string
+    {
+        return self::SHIRT_SIZES[$this->shirt_size] ?? (string) $this->shirt_size;
+    }
+
+    /** No receipt info of its own: the group's shared receipt info applies. */
+    public function usesGroupReceipt(): bool
+    {
+        return $this->receipt_name === null;
+    }
+
+    public function receiptName(): ?string
+    {
+        return $this->usesGroupReceipt() ? $this->group->receipt_name : $this->receipt_name;
+    }
+
+    public function receiptAddress(): ?string
+    {
+        return $this->usesGroupReceipt() ? $this->group->receipt_address : $this->receipt_address;
+    }
+
+    public function receiptTaxId(): ?string
+    {
+        return $this->usesGroupReceipt() ? $this->group->receipt_tax_id : $this->receipt_tax_id;
     }
 
     public function maskedNationalId(): string

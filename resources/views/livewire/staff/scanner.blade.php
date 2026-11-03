@@ -53,7 +53,7 @@
                 </div>
 
                 <dl class="grid grid-cols-2 gap-3 text-sm">
-                    <div class="rounded-lg bg-slate-50 p-3"><dt class="text-xs text-slate-500">ไซซ์เสื้อ</dt><dd class="text-xl font-semibold">{{ $participant->shirt_size }}</dd></div>
+                    <div class="rounded-lg bg-slate-50 p-3"><dt class="text-xs text-slate-500">ไซซ์เสื้อ</dt><dd class="text-xl font-semibold">{{ $participant->shirtSizeLabel() }}</dd></div>
                     <div class="rounded-lg bg-slate-50 p-3"><dt class="text-xs text-slate-500">อาหาร</dt><dd class="font-medium">{{ $participant->food_type }}</dd></div>
                     <div @class(['col-span-2 rounded-lg p-3', 'bg-red-50 text-red-700' => $participant->food_allergy, 'bg-slate-50' => ! $participant->food_allergy])>
                         <dt class="text-xs opacity-70">อาหารที่แพ้</dt><dd class="font-medium">{{ $participant->food_allergy ?: 'ไม่มี' }}</dd>

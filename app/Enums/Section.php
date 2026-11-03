@@ -10,8 +10,8 @@ enum Section: string
     public function label(): string
     {
         return match ($this) {
-            self::Executive => 'ส่วนที่ 1 ข้อมูลผู้บริหาร',
-            self::Member => 'ส่วนที่ 2 ข้อมูลบุคลากร/นักศึกษา',
+            self::Executive => 'ข้อมูลผู้บริหาร',
+            self::Member => 'ข้อมูลบุคลากร/นักศึกษา',
         };
     }
 }

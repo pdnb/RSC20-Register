@@ -19,7 +19,7 @@ class ParticipantObserver
             $participant->national_id_hash = ThaiId::hash($participant->national_id);
         }
 
-        if ($participant->isDirty('receipt_tax_id')) {
+        if ($participant->isDirty('receipt_tax_id') && $participant->receipt_tax_id !== null) {
             $participant->receipt_tax_id = ThaiId::normalize($participant->receipt_tax_id);
         }
 

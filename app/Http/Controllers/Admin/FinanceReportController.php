@@ -62,7 +62,7 @@ class FinanceReportController extends Controller
         $s = $data['submission'];
 
         $rows = $data['participants']->map(fn ($p, $i) => [
-            $i + 1, $p->code, $p->receipt_name, $p->receipt_address, ThaiId::format($p->receipt_tax_id),
+            $i + 1, $p->code, $p->receiptName(), $p->receiptAddress(), ThaiId::format($p->receiptTaxId()),
             $p->group->university->name, $p->type->name_th, (float) $p->fee_amount, $p->group->payment_method?->label(),
             $p->group->paidAt()?->format('d/m/Y H:i'), $p->group->slip_reference,
             'หลักฐาน #'.$data['evidenceNo'][$p->registration_group_id], $p->receipt_no ?? '',

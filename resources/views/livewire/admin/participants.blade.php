@@ -36,7 +36,7 @@
                             @endif
                         </x-wirekit::table.td>
                         <x-wirekit::table.td>{{ $p->food_type }}@if ($p->food_allergy)<div class="text-xs text-red-600">แพ้: {{ $p->food_allergy }}</div>@endif</x-wirekit::table.td>
-                        <x-wirekit::table.td>{{ $p->shirt_size }}</x-wirekit::table.td>
+                        <x-wirekit::table.td>{{ $p->shirtSizeLabel() }}</x-wirekit::table.td>
                         <x-wirekit::table.td>
                             @if ($p->checked_in_at)
                                 <x-wirekit::badge size="sm" intent="success">{{ $p->checked_in_at->format('d/m H:i') }}</x-wirekit::badge>

@@ -15,7 +15,10 @@ class RegistrationGroup extends Model
         'university_id', 'coordinator_id', 'payment_method', 'payment_status', 'total_amount', 'paid_amount',
         'slip_path', 'slip_reference', 'transferred_at', 'slip_submitted_at', 'reject_reason',
         'approved_by', 'approved_at', 'onsite_received_by', 'onsite_received_at', 'pdpa_accepted_at',
+        'receipt_name', 'receipt_address', 'receipt_tax_id',
     ];
+
+    protected $hidden = ['receipt_tax_id'];
 
     protected $attributes = [
         'payment_status' => 'pending',
@@ -34,6 +37,7 @@ class RegistrationGroup extends Model
             'approved_at' => 'datetime',
             'onsite_received_at' => 'datetime',
             'pdpa_accepted_at' => 'datetime',
+            'receipt_tax_id' => 'encrypted',
         ];
     }
 
@@ -71,6 +75,12 @@ class RegistrationGroup extends Model
     public function isEditableByCoordinator(): bool
     {
         return ! $this->isPaid() && Setting::registrationOpen();
+    }
+
+    /** Shared receipt info that participants use unless they enter their own. */
+    public function hasReceiptInfo(): bool
+    {
+        return filled($this->receipt_name) && filled($this->receipt_address) && filled($this->receipt_tax_id);
     }
 
     public function paidAt(): ?CarbonInterface

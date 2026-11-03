@@ -14,6 +14,7 @@ use App\Support\Images;
 use App\Support\ThaiId;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -25,7 +26,20 @@ class GroupManager extends Component
     use ResolvesGroup;
     use WithFileUploads;
 
+    /**
+     * Rule keys each wizard step owns, so a step validates only its own fields.
+     *
+     * @var array<int, list<string>>
+     */
+    protected const STEP_FIELDS = [
+        1 => ['form.section', 'form.position', 'form.title', 'form.title_other', 'form.full_name', 'form.mobile_phone', 'form.national_id'],
+        2 => ['form.food_type', 'form.food_type_other', 'form.food_allergy', 'form.shirt_size', 'photo'],
+        3 => ['form.use_group_receipt', 'form.receipt_name', 'form.receipt_address', 'form.receipt_tax_id', 'pdpa'],
+    ];
+
     public ?int $editingId = null;
+
+    public int $step = 1;
 
     public bool $pdpa = false;
 
@@ -34,10 +48,18 @@ class GroupManager extends Component
 
     public $photo = null;
 
+    /** @var array{name: string, address: string, tax_id: string} Group-wide receipt info */
+    public array $receipt = ['name' => '', 'address' => '', 'tax_id' => ''];
+
     public function mount(?RegistrationGroup $group = null): void
     {
         $this->resolveGroup($group);
         $this->pdpa = (bool) $this->group->pdpa_accepted_at;
+        $this->receipt = [
+            'name' => (string) $this->group->receipt_name,
+            'address' => (string) $this->group->receipt_address,
+            'tax_id' => (string) $this->group->receipt_tax_id,
+        ];
         $this->resetForm(Section::Executive->value);
     }
 
@@ -50,7 +72,7 @@ class GroupManager extends Component
     {
         $this->form = [
             'section' => $section,
-            'position' => $section === Section::Member->value ? 'นักศึกษา' : '',
+            'position' => $section === Section::Member->value ? 'บุคลากร' : '',
             'title' => 'นาย',
             'title_other' => '',
             'full_name' => '',
@@ -59,15 +81,47 @@ class GroupManager extends Component
             'food_type' => Participant::FOOD_TYPES[0],
             'food_type_other' => '',
             'food_allergy' => '',
-            'shirt_size' => 'M',
-            'receipt_same' => true,
+            'shirt_size' => '',
+            'use_group_receipt' => true,
             'receipt_name' => '',
             'receipt_address' => '',
             'receipt_tax_id' => '',
             'badge_photo_path' => null,
         ];
         $this->photo = null;
+        $this->step = 1;
         $this->resetValidation();
+    }
+
+    public function nextStep(): void
+    {
+        $this->form['mobile_phone'] = preg_replace('/\D/', '', (string) $this->form['mobile_phone']);
+        $this->validate(array_intersect_key($this->rules(), array_flip(self::STEP_FIELDS[$this->step])));
+
+        $this->step = min($this->step + 1, count(self::STEP_FIELDS));
+    }
+
+    public function previousStep(): void
+    {
+        $this->step = max($this->step - 1, 1);
+    }
+
+    /** Jump back to a finished step; moving forward always goes through nextStep(). */
+    public function goToStep(int $step): void
+    {
+        if ($step >= 1 && $step < $this->step) {
+            $this->step = $step;
+        }
+    }
+
+    public function fillReceiptFromParticipant(): void
+    {
+        $title = $this->form['title'] === 'อื่นๆ' ? trim((string) $this->form['title_other']) : $this->form['title'];
+
+        $this->form['use_group_receipt'] = false;
+        $this->form['receipt_name'] = $title.trim((string) $this->form['full_name']);
+        $this->form['receipt_tax_id'] = $this->form['national_id'];
+        $this->resetValidation(['form.receipt_name', 'form.receipt_tax_id']);
     }
 
     public function create(string $section): void
@@ -100,10 +154,10 @@ class GroupManager extends Component
             'food_type_other' => $foodKnown ? '' : $p->food_type,
             'food_allergy' => (string) $p->food_allergy,
             'shirt_size' => $p->shirt_size,
-            'receipt_same' => $p->receipt_name === $p->displayName() && $p->receipt_tax_id === $p->national_id,
-            'receipt_name' => $p->receipt_name,
-            'receipt_address' => $p->receipt_address,
-            'receipt_tax_id' => $p->receipt_tax_id,
+            'use_group_receipt' => $p->usesGroupReceipt(),
+            'receipt_name' => (string) $p->receipt_name,
+            'receipt_address' => (string) $p->receipt_address,
+            'receipt_tax_id' => (string) $p->receipt_tax_id,
             'badge_photo_path' => $p->badge_photo_path,
         ]);
 
@@ -113,6 +167,19 @@ class GroupManager extends Component
     protected function rules(): array
     {
         $member = $this->form['section'] === Section::Member->value;
+        $ownReceipt = ! $this->form['use_group_receipt'];
+
+        $receiptRules = $ownReceipt ? [
+            'form.receipt_name' => ['required', 'string', 'max:200'],
+            'form.receipt_address' => ['required', 'string', 'max:500'],
+            'form.receipt_tax_id' => ['required', $this->taxIdRule()],
+        ] : [
+            'form.use_group_receipt' => [function ($attr, $value, $fail) {
+                if (! $this->group->hasReceiptInfo()) {
+                    $fail('กรุณาบันทึกข้อมูลใบเสร็จกลางของมหาวิทยาลัยก่อน หรือระบุข้อมูลใบเสร็จแยกรายบุคคล');
+                }
+            }],
+        ];
 
         return [
             'form.section' => ['required', Rule::enum(Section::class)],
@@ -137,18 +204,20 @@ class GroupManager extends Component
             'form.food_type' => ['required', Rule::in([...Participant::FOOD_TYPES, 'อื่นๆ'])],
             'form.food_type_other' => ['required_if:form.food_type,อื่นๆ', 'nullable', 'string', 'max:100'],
             'form.food_allergy' => ['nullable', 'string', 'max:255'],
-            'form.shirt_size' => ['required', Rule::in(Participant::SHIRT_SIZES)],
-            'form.receipt_same' => ['boolean'],
-            'form.receipt_name' => ['exclude_if:form.receipt_same,true', 'required', 'string', 'max:200'],
-            'form.receipt_address' => ['required', 'string', 'max:500'],
-            'form.receipt_tax_id' => ['exclude_if:form.receipt_same,true', 'required', function ($attr, $value, $fail) {
-                if (! ThaiId::isValid($value)) {
-                    $fail('เลขประจำตัวผู้เสียภาษีไม่ถูกต้อง');
-                }
-            }],
-            'photo' => ['nullable', 'image', 'mimes:jpg,jpeg,png', 'max:2048'],
+            'form.shirt_size' => ['required', Rule::in(array_keys(Participant::SHIRT_SIZES))],
+            ...$receiptRules,
+            'photo' => [Rule::requiredIf(! $this->form['badge_photo_path']), 'nullable', 'image', 'mimes:jpg,jpeg,png', 'max:5120'],
             'pdpa' => ['accepted'],
         ];
+    }
+
+    protected function taxIdRule(): \Closure
+    {
+        return function ($attr, $value, $fail) {
+            if (! ThaiId::isValid($value)) {
+                $fail('เลขประจำตัวผู้เสียภาษีไม่ถูกต้อง');
+            }
+        };
     }
 
     protected function validationAttributes(): array
@@ -166,6 +235,9 @@ class GroupManager extends Component
             'form.receipt_name' => 'ชื่อผู้รับใบเสร็จ',
             'form.receipt_address' => 'ที่อยู่สำหรับออกใบเสร็จ',
             'form.receipt_tax_id' => 'เลขประจำตัวผู้เสียภาษี',
+            'receipt.name' => 'ชื่อผู้รับใบเสร็จ',
+            'receipt.address' => 'ที่อยู่สำหรับออกใบเสร็จ',
+            'receipt.tax_id' => 'เลขประจำตัวผู้เสียภาษี',
             'photo' => 'รูปภาพสำหรับทำป้ายชื่อ',
             'pdpa' => 'การยินยอม PDPA',
         ];
@@ -180,12 +252,20 @@ class GroupManager extends Component
         ];
     }
 
-    public function save(): void
+    public function save(bool $addAnother = false): void
     {
         abort_unless($this->canEdit(), 403);
 
         $this->form['mobile_phone'] = preg_replace('/\D/', '', (string) $this->form['mobile_phone']);
-        $this->validate();
+
+        try {
+            $this->validate();
+        } catch (ValidationException $e) {
+            $this->step = $this->firstStepWithErrors(array_keys($e->errors()));
+            $this->dispatch('wirekit:focus-invalid');
+
+            throw $e;
+        }
 
         $f = $this->form;
         $title = $f['title'] === 'อื่นๆ' ? trim($f['title_other']) : $f['title'];
@@ -208,9 +288,9 @@ class GroupManager extends Component
             'food_type' => $f['food_type'] === 'อื่นๆ' ? trim($f['food_type_other']) : $f['food_type'],
             'food_allergy' => trim((string) $f['food_allergy']) ?: null,
             'shirt_size' => $f['shirt_size'],
-            'receipt_name' => $f['receipt_same'] ? $title.trim($f['full_name']) : trim($f['receipt_name']),
-            'receipt_address' => trim($f['receipt_address']),
-            'receipt_tax_id' => ThaiId::normalize($f['receipt_same'] ? $f['national_id'] : $f['receipt_tax_id']),
+            'receipt_name' => $f['use_group_receipt'] ? null : trim($f['receipt_name']),
+            'receipt_address' => $f['use_group_receipt'] ? null : trim($f['receipt_address']),
+            'receipt_tax_id' => $f['use_group_receipt'] ? null : ThaiId::normalize($f['receipt_tax_id']),
         ]);
         $participant->save();
 
@@ -226,10 +306,52 @@ class GroupManager extends Component
 
         AuditLog::record($this->editingId ? 'participant.updated' : 'participant.created', $participant);
 
-        $this->dispatch('wirekit-modal-close', name: 'participant-form');
+        if ($addAnother) {
+            $this->editingId = null;
+            $this->resetForm($f['section']);
+        } else {
+            $this->dispatch('wirekit-modal-close', name: 'participant-form');
+        }
         $this->group->refresh();
         unset($this->summary);
         $this->dispatch('wirekit-toast', variant: 'success', title: 'บันทึกแล้ว', message: $participant->displayName());
+    }
+
+    /**
+     * @param  list<string>  $errorKeys
+     */
+    protected function firstStepWithErrors(array $errorKeys): int
+    {
+        foreach (self::STEP_FIELDS as $step => $fields) {
+            if (array_intersect($fields, $errorKeys)) {
+                return $step;
+            }
+        }
+
+        return $this->step;
+    }
+
+    /** Shared receipt info used by every participant who has none of their own. */
+    public function saveReceipt(): void
+    {
+        abort_unless($this->canEdit(), 403);
+
+        $this->validate([
+            'receipt.name' => ['required', 'string', 'max:200'],
+            'receipt.address' => ['required', 'string', 'max:500'],
+            'receipt.tax_id' => ['required', $this->taxIdRule()],
+        ]);
+
+        $this->group->forceFill([
+            'receipt_name' => trim($this->receipt['name']),
+            'receipt_address' => trim($this->receipt['address']),
+            'receipt_tax_id' => ThaiId::normalize($this->receipt['tax_id']),
+        ])->save();
+        $this->receipt['tax_id'] = $this->group->receipt_tax_id;
+
+        AuditLog::record('group.receipt_updated', $this->group);
+
+        $this->dispatch('wirekit-toast', variant: 'success', title: 'บันทึกข้อมูลใบเสร็จแล้ว', message: $this->group->receipt_name);
     }
 
     public function delete(int $id): void

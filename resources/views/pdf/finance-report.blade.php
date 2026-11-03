@@ -59,9 +59,9 @@
                 <tr>
                     <td class="center">{{ $i + 1 }}</td>
                     <td>{{ $p->code }}</td>
-                    <td>{{ $p->receipt_name }}</td>
-                    <td>{{ $p->receipt_address }}</td>
-                    <td>{{ \App\Support\ThaiId::format($p->receipt_tax_id) }}</td>
+                    <td>{{ $p->receiptName() }}</td>
+                    <td>{{ $p->receiptAddress() }}</td>
+                    <td>{{ \App\Support\ThaiId::format($p->receiptTaxId()) }}</td>
                     <td>{{ $p->group->university->name }}</td>
                     <td>{{ $p->type->name_th }}</td>
                     <td class="right">{{ number_format($p->fee_amount, 2) }}</td>
