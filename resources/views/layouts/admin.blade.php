@@ -27,7 +27,7 @@
                    :class="nav && 'translate-x-0'">
                 <div class="flex items-center gap-2 border-b border-slate-200 px-5 py-4">
                     <img src="{{ asset('images/logo.webp') }}" alt="" class="size-11 shrink-0 rounded-xl bg-white object-contain">
-                    <div class="text-sm font-semibold leading-tight text-blue-700">RSC20<br><span class="font-normal text-slate-500">ส่วนผู้ดูแล</span></div>
+                    <div class="text-sm font-semibold leading-tight text-blue-700">Admin Console</div>
                 </div>
                 <nav class="space-y-0.5 p-3 text-sm">
                     @foreach ($links as [$name, $label])
