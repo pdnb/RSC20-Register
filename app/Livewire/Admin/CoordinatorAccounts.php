@@ -139,7 +139,7 @@ class CoordinatorAccounts extends Component
 
     private function suggestUsername(?University $university): string
     {
-        $base = 'rsc20-'.Str::lower((string) $university?->code);
+        $base = 'rusf20_'.Str::lower((string) $university?->code);
         $username = $base;
         $i = 2;
         while (User::query()->where('username', $username)->exists()) {
