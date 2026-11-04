@@ -3,8 +3,8 @@
     <head>
         @include('layouts.head')
     </head>
-    <body class="min-h-screen bg-(--color-wk-bg-muted) text-(--color-wk-text) antialiased">
-        <x-wirekit::stack gap="lg" align="center" justify="center" class="min-h-screen px-4 py-10">
+    <body class="flex min-h-screen flex-col bg-(--color-wk-bg-muted) text-(--color-wk-text) antialiased">
+        <x-wirekit::stack gap="lg" align="center" justify="center" class="flex-1 px-4 py-10">
             <x-wirekit::stack gap="xs" align="center" class="text-center">
                 <x-wirekit::image :src="asset('images/logo.webp')" alt="สมาพันธ์นักศึกษามหาวิทยาลัยราชภัฏแห่งประเทศไทย ครั้งที่ 20" loading="eager" width="160" height="160" class="size-40" />
                 <x-wirekit::heading level="1" size="lg">การอบรมเชิงปฏิบัติการ : สัมมนาสมาพันธ์นักศึกษา<br class="sm:hidden">มหาวิทยาลัยราชภัฏแห่งประเทศไทย ครั้งที่ 20</x-wirekit::heading>
@@ -14,9 +14,9 @@
             <div class="w-full max-w-md">
                 {{ $slot }}
             </div>
-
-            @include('layouts.footer')
         </x-wirekit::stack>
+
+        @include('layouts.footer')
 
         <x-wirekit::toast-region />
         @wirekitScripts

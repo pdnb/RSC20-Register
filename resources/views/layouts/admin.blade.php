@@ -59,9 +59,9 @@
 
                     {{ $slot }}
                 </x-wirekit::stack>
-
-                @include('layouts.footer')
             </x-wirekit::main>
+
+            @include('layouts.footer')
         </x-wirekit::app-shell>
 
         <x-wirekit::toast-region />
