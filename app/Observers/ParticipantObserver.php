@@ -4,6 +4,7 @@ namespace App\Observers;
 
 use App\Models\Participant;
 use App\Services\FeeCalculator;
+use App\Support\ParticipantCode;
 use App\Support\ThaiId;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -28,7 +29,7 @@ class ParticipantObserver
 
     public function created(Participant $participant): void
     {
-        $participant->forceFill(['code' => sprintf('RSC20-%04d', $participant->id)])->saveQuietly();
+        ParticipantCode::assign($participant);
         FeeCalculator::refreshTotal($participant->group);
     }
 

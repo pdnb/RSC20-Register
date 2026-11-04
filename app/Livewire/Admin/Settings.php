@@ -6,6 +6,7 @@ use App\Models\AuditLog;
 use App\Models\ParticipantType;
 use App\Models\Setting;
 use App\Support\Images;
+use App\Support\ParticipantCode;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -32,6 +33,7 @@ class Settings extends Component
     private const SECTIONS = [
         'event' => ['งานและช่วงเวลา', 'calendar', ['settings.event_', 'settings.registration_']],
         'fees' => ['ค่าลงทะเบียน', 'coins', ['fees.']],
+        'code' => ['รหัสผู้เข้าร่วม', 'hash', ['settings.participant_code_']],
         'bank' => ['บัญชีรับโอน', 'billing', ['settings.bank_']],
         'finance' => ['รายงาน / PDPA', 'file-text', ['settings.finance_', 'settings.pdpa_']],
         'badge' => ['ป้ายชื่อ', 'badge', ['settings.badge_', 'badgeBackground']],
@@ -70,10 +72,19 @@ class Settings extends Component
                 'settings.registration_opens_at' => ['nullable', 'date'],
                 'settings.registration_closes_at' => ['nullable', 'date', 'after_or_equal:settings.registration_opens_at'],
                 ...array_fill_keys(array_map(fn ($k) => 'settings.'.$k, $badgeKeys), ['required', 'numeric', 'between:0,100']),
+                // 12-char prefix + 8 digits fits the 20-char participants.code column
+                'settings.participant_code_prefix' => ['required', 'string', 'regex:/^[A-Za-z0-9_-]{1,12}$/'],
+                'settings.participant_code_digits' => ['required', 'integer', 'between:1,8'],
+                'settings.participant_code_start' => ['required', 'integer', 'min:1', 'max:99999999'],
                 'settings.*' => ['nullable', 'string', 'max:2000'],
             ], attributes: [
                 'fees.*' => 'ค่าลงทะเบียน', 'settings.registration_closes_at' => 'วันปิดรับสมัคร',
                 ...array_fill_keys(array_map(fn ($k) => 'settings.'.$k, $badgeKeys), 'ตำแหน่งบนป้ายชื่อ'),
+                'settings.participant_code_prefix' => 'คำนำหน้ารหัส',
+                'settings.participant_code_digits' => 'จำนวนหลัก',
+                'settings.participant_code_start' => 'เลขเริ่มต้น',
+            ], messages: [
+                'settings.participant_code_prefix.regex' => 'คำนำหน้ารหัสใช้ได้เฉพาะ A–Z, 0–9, - และ _ ไม่เกิน 12 ตัวอักษร',
             ]);
         } catch (ValidationException $e) {
             $this->setErrorBag($e->validator->errors());
@@ -155,6 +166,21 @@ class Settings extends Component
         ])->values()->all();
     }
 
+    /** The next code under the format being typed, or null while it is not yet valid. */
+    private function codePreview(): ?string
+    {
+        $prefix = (string) ($this->settings['participant_code_prefix'] ?? '');
+        $digits = $this->settings['participant_code_digits'] ?? '';
+        $start = $this->settings['participant_code_start'] ?? '';
+
+        if (! preg_match('/^[A-Za-z0-9_-]{1,12}$/', $prefix) || ! ctype_digit((string) $digits) || ! ctype_digit((string) $start)
+            || $digits < 1 || $digits > 8 || $start < 1) {
+            return null;
+        }
+
+        return ParticipantCode::preview($prefix, (int) $digits, (int) $start);
+    }
+
     public function render()
     {
         $backgroundPath = Setting::get('badge_background_path');
@@ -162,6 +188,7 @@ class Settings extends Component
         return view('livewire.admin.settings', [
             'sections' => $this->sections(),
             'types' => ParticipantType::query()->orderBy('sort_order')->get(),
+            'codePreview' => $this->codePreview(),
             'badgeBackgroundUrl' => $backgroundPath && Storage::disk('local')->exists($backgroundPath)
                 ? route('admin.badge-background', ['v' => Storage::disk('local')->lastModified($backgroundPath)])
                 : null,

@@ -55,7 +55,7 @@ class RegistrationFlowTest extends TestCase
         $this->assertSame('0812345678', $p->mobile_phone);
         $this->assertSame('ผศ.ดร.สมชาย ใจดี', $p->receipt_name);
         $this->assertSame($id, $p->receipt_tax_id);
-        $this->assertSame('RSC20-'.str_pad((string) $p->id, 4, '0', STR_PAD_LEFT), $p->code);
+        $this->assertSame('RSC20-0001', $p->code);
         Storage::disk('local')->assertExists($p->badge_photo_path);
         // national ID is encrypted at rest
         $this->assertNotSame($id, $p->getRawOriginal('national_id'));
@@ -421,5 +421,22 @@ class RegistrationFlowTest extends TestCase
         auth()->logout();
         $this->get(route('login'))->assertOk();
         $this->get(route('admin.login'))->assertOk();
+    }
+
+    public function test_new_participants_follow_the_admin_set_code_format_and_existing_codes_stay(): void
+    {
+        $group = $this->group();
+        $existing = $this->participant($group);
+        $this->assertSame('RSC20-0001', $existing->code);
+
+        Setting::put(['participant_code_prefix' => 'SRU-', 'participant_code_digits' => '3', 'participant_code_start' => '50']);
+
+        $this->assertSame('SRU-050', $this->participant($group)->code);
+        $this->assertSame('SRU-051', $this->participant($group)->code);
+        $this->assertSame('RSC20-0001', $existing->fresh()->code);
+
+        // Back on the old prefix, numbering continues past the highest code already issued under it.
+        Setting::put(['participant_code_prefix' => 'RSC20-', 'participant_code_digits' => '4', 'participant_code_start' => '1']);
+        $this->assertSame('RSC20-0002', $this->participant($group)->code);
     }
 }

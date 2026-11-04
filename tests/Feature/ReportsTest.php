@@ -205,6 +205,18 @@ class ReportsTest extends TestCase
             ->assertSet('section', 'fees');
     }
 
+    public function test_settings_rejects_an_invalid_participant_code_format(): void
+    {
+        Livewire::actingAs($this->admin())->test(Settings::class)
+            ->set('settings.participant_code_prefix', 'RSC 20/')
+            ->set('settings.participant_code_digits', '9')
+            ->call('save')
+            ->assertHasErrors(['settings.participant_code_prefix', 'settings.participant_code_digits'])
+            ->assertSet('section', 'code');
+
+        $this->assertSame('RSC20-', Setting::get('participant_code_prefix'));
+    }
+
     public function test_admin_issues_coordinator_accounts_for_all_universities(): void
     {
         $admin = $this->admin();

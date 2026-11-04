@@ -20,6 +20,10 @@ class Setting extends Model
         'pdpa_text' => 'ข้าพเจ้ายินยอมให้มหาวิทยาลัยราชภัฏสุราษฎร์ธานีเก็บ ใช้ และเปิดเผยข้อมูลส่วนบุคคลของผู้เข้าร่วม รวมถึงเลขประจำตัวประชาชน เพื่อการจัดสัมมนา การออกใบเสร็จรับเงิน และยืนยันว่าได้รับความยินยอมจากผู้เข้าร่วมทุกคนแล้ว',
         'finance_office_name' => 'กองคลัง มหาวิทยาลัยราชภัฏสุราษฎร์ธานี',
         'finance_sender_name' => '',
+        // Participant code = prefix + running number padded to the digit count, starting at start
+        'participant_code_prefix' => 'RSC20-',
+        'participant_code_digits' => '4',
+        'participant_code_start' => '1',
         // Name badge: photo box and text start as % of the background; defaults fit the RSC20 template
         'badge_photo_left' => '34.5',
         'badge_photo_top' => '33.4',

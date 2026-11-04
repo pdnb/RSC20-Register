@@ -34,6 +34,21 @@
                         </x-wirekit::stack>
                     </x-wirekit::card.body>
                 </x-wirekit::card>
+            @elseif ($section === 'code')
+                <x-wirekit::card>
+                    <x-wirekit::card.header><x-wirekit::heading level="2" size="base">รูปแบบรหัสผู้เข้าร่วม</x-wirekit::heading></x-wirekit::card.header>
+                    <x-wirekit::card.body>
+                        <x-wirekit::stack gap="md">
+                            <x-wirekit::grid cols="1 sm:3" gap="md">
+                                <x-wirekit::input wire:model.live.debounce.400ms="settings.participant_code_prefix" label="คำนำหน้ารหัส" placeholder="เช่น RSC20-" hint="A–Z, 0–9, - และ _ ไม่เกิน 12 ตัว" mono required :error="$errors->first('settings.participant_code_prefix')" />
+                                <x-wirekit::input wire:model.live.debounce.400ms="settings.participant_code_digits" type="number" min="1" max="8" label="จำนวนหลักของเลขลำดับ" hint="4 = 0001" required :error="$errors->first('settings.participant_code_digits')" />
+                                <x-wirekit::input wire:model.live.debounce.400ms="settings.participant_code_start" type="number" min="1" label="เลขเริ่มต้น" required :error="$errors->first('settings.participant_code_start')" />
+                            </x-wirekit::grid>
+                            <x-wirekit::text size="sm">รหัสถัดไป: <x-wirekit::text as="span" weight="semibold" family="mono">{{ $codePreview ?? '—' }}</x-wirekit::text></x-wirekit::text>
+                            <x-wirekit::text size="xs" intent="muted">การเปลี่ยนรูปแบบมีผลกับผู้เข้าร่วมที่เพิ่มหลังจากนี้ รหัสของผู้เข้าร่วมเดิมไม่เปลี่ยน ระบบจะต่อเลขจากรหัสสูงสุดที่ใช้คำนำหน้าเดียวกัน และไม่ต่ำกว่าเลขเริ่มต้น</x-wirekit::text>
+                        </x-wirekit::stack>
+                    </x-wirekit::card.body>
+                </x-wirekit::card>
             @elseif ($section === 'bank')
                 <x-wirekit::card>
                     <x-wirekit::card.header><x-wirekit::heading level="2" size="base">บัญชีรับโอน</x-wirekit::heading></x-wirekit::card.header>
