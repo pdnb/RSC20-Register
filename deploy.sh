@@ -8,6 +8,7 @@
 #
 # Optional environment overrides:
 #   PHP_BIN=/usr/bin/php8.4 COMPOSER_BIN=/usr/local/bin/composer bash deploy.sh
+#   (composer is always run as "$PHP_BIN composer", so it uses the same PHP as artisan)
 #   CLEAN_NODE_MODULES=1 bash deploy.sh   # delete node_modules after building to save disk space
 #
 # ---------------------------------------------------------------------------
@@ -15,7 +16,8 @@
 # ---------------------------------------------------------------------------
 # 1. Hestia > Web > rusf20.sru.ac.th > Edit > Advanced options:
 #      - Web template (nginx / apache): "laravel"  -> docroot becomes public_html/public
-#      - Backend template / PHP-FPM: PHP 8.3 or newer (highest available)
+#      - Backend template / PHP-FPM: PHP-8_4 or newer (composer.lock needs PHP >= 8.4.1;
+#        install it with: v-add-web-php 8.4)
 #      - Enable SSL + Let's Encrypt
 # 2. Hestia > Users > rusf20 > SSH access: bash
 #    If the GitHub repo is private, add the server's SSH public key as a deploy key
@@ -29,7 +31,7 @@
 #      # edit .env: APP_ENV=production, APP_DEBUG=false, APP_URL=https://rusf20.sru.ac.th,
 #      #            DB_CONNECTION=mysql, DB_HOST, DB_PORT, DB_DATABASE, DB_USERNAME, DB_PASSWORD,
 #      #            Auth0 credentials (callback: {APP_URL}/admin/auth/auth0/callback)
-#      composer install --no-dev && php artisan key:generate
+#      php8.4 $(command -v composer) install --no-dev && php8.4 artisan key:generate
 # 5. Make sure Node.js >= 20 and npm are installed (Vite 8 needs them).
 # 6. bash deploy.sh
 # ---------------------------------------------------------------------------
@@ -38,8 +40,15 @@ set -euo pipefail
 
 APP_DIR="/home/rusf20/web/rusf20.sru.ac.th/public_html"
 BRANCH="${1:-main}"
-PHP="${PHP_BIN:-php}"
-COMPOSER="${COMPOSER_BIN:-composer}"
+PHP="${PHP_BIN:-$(command -v php8.5 || command -v php8.4 || command -v php)}"
+COMPOSER_PHAR="${COMPOSER_BIN:-$(command -v composer)}"
+MIN_PHP_VERSION="8.4.1"
+
+# Run composer with the same PHP binary as artisan, not whatever the composer
+# wrapper's shebang points to (on Hestia that is often the system php8.3).
+composer_run() {
+    "$PHP" "$COMPOSER_PHAR" "$@"
+}
 
 step() {
     printf '\n\033[1;34m==> %s\033[0m\n' "$1"
@@ -54,6 +63,13 @@ fi
 
 if [[ ! -d .git ]]; then
     echo "ERROR: $APP_DIR is not a git repository. Clone the repo into it first (see one-time setup above)." >&2
+    exit 1
+fi
+
+if ! "$PHP" -r "exit(version_compare(PHP_VERSION, '$MIN_PHP_VERSION', '>=') ? 0 : 1);"; then
+    echo "ERROR: $PHP is PHP $("$PHP" -r 'echo PHP_VERSION;'), but composer.lock needs PHP >= $MIN_PHP_VERSION." >&2
+    echo "       Install PHP 8.4 in Hestia (v-add-web-php 8.4), switch the domain's backend to PHP-8_4," >&2
+    echo "       then run: PHP_BIN=/usr/bin/php8.4 bash deploy.sh" >&2
     exit 1
 fi
 
@@ -78,7 +94,7 @@ git fetch --prune origin "$BRANCH"
 git reset --hard "origin/$BRANCH"
 
 step "Install PHP dependencies"
-"$COMPOSER" install --no-dev --prefer-dist --optimize-autoloader --no-interaction
+composer_run install --no-dev --prefer-dist --optimize-autoloader --no-interaction
 
 step "Build frontend assets"
 npm ci --no-audit --no-fund
