@@ -21,7 +21,7 @@
                 : [['staff.checkin', 'เช็กอินหน้างาน', 'scan']];
         @endphp
 
-        <x-wirekit::app-shell header-placement="content" :sidebar-inset="false" class="bg-(--color-wk-bg-muted)">
+        <x-wirekit::app-shell viewport header-placement="content" :sidebar-inset="false" class="bg-(--color-wk-bg-muted)">
             <x-slot:sidebar>
                 <x-wirekit::sidebar variant="flush" label="เมนูผู้ดูแล">
                     <x-slot:header>
@@ -35,7 +35,7 @@
             </x-slot:sidebar>
 
             <x-slot:header>
-                <x-wirekit::header sticky class="border-b border-(--color-wk-border) bg-(--color-wk-bg) px-4 py-3">
+                <x-wirekit::header class="border-b border-(--color-wk-border) bg-(--color-wk-bg) px-4 py-3">
                     <x-wirekit::sidebar.toggle class="lg:hidden" />
                     <x-wirekit::heading level="1" size="sm" class="truncate">{{ $title ?? '' }}</x-wirekit::heading>
                     <x-wirekit::row gap="md" align="center" class="ml-auto">
@@ -59,9 +59,9 @@
 
                     {{ $slot }}
                 </x-wirekit::stack>
-            </x-wirekit::main>
 
-            @include('layouts.footer')
+                @include('layouts.footer')
+            </x-wirekit::main>
         </x-wirekit::app-shell>
 
         <x-wirekit::toast-region />
