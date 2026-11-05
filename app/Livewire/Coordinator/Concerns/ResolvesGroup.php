@@ -32,4 +32,10 @@ trait ResolvesGroup
     {
         return auth()->user()->isAdmin() || $this->group->isEditableByCoordinator();
     }
+
+    /** Editing participants already on the list is also allowed while an admin has unlocked the group. */
+    public function canEditExistingParticipants(): bool
+    {
+        return $this->canEdit() || $this->group->isEditUnlocked();
+    }
 }

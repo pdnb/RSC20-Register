@@ -6,11 +6,25 @@
                 @if ($group->payment_method)
                     <x-wirekit::badge intent="info">{{ $group->payment_method->label() }}</x-wirekit::badge>
                 @endif
+                @if ($group->isEditUnlocked())
+                    <x-wirekit::badge intent="warning" leading-icon="edit">ปลดล็อคแก้ไข</x-wirekit::badge>
+                @endif
+                @if (auth()->user()->isAdmin())
+                    @if ($group->isEditUnlocked())
+                        <x-wirekit::button size="sm" intent="neutral" surface="outline" wire:click="toggleEditUnlock"
+                            wire:confirm="ล็อคการแก้ไขรายชื่อของ {{ $group->university->name }}?">ล็อคการแก้ไข</x-wirekit::button>
+                    @else
+                        <x-wirekit::button size="sm" intent="warning" surface="soft" wire:click="toggleEditUnlock"
+                            wire:confirm="ปลดล็อคให้ผู้ประสานงาน {{ $group->university->name }} แก้ไขข้อมูลผู้เข้าร่วมที่มีอยู่? (เพิ่มหรือลบรายชื่อไม่ได้)">ปลดล็อคให้แก้ไขรายชื่อ</x-wirekit::button>
+                    @endif
+                @endif
             </x-wirekit::row>
         </x-slot:actions>
     </x-wirekit::page-header>
 
-    @if (! $registrationOpen && ! auth()->user()->isAdmin())
+    @if (! $editable && $editableExisting)
+        <x-wirekit::callout intent="info">ผู้ดูแลระบบเปิดให้แก้ไขข้อมูลผู้เข้าร่วมที่มีอยู่ได้ (เพิ่มหรือลบรายชื่อไม่ได้)</x-wirekit::callout>
+    @elseif (! $registrationOpen && ! auth()->user()->isAdmin())
         <x-wirekit::callout intent="warning">ขณะนี้อยู่นอกช่วงเวลารับลงทะเบียน จึงแก้ไขรายชื่อไม่ได้</x-wirekit::callout>
     @elseif ($group->isPaid() && ! auth()->user()->isAdmin())
         <x-wirekit::callout intent="info">ชำระเงินเรียบร้อยแล้ว หากต้องการแก้ไขรายชื่อ กรุณาติดต่อผู้ดูแลระบบ</x-wirekit::callout>
@@ -123,7 +137,7 @@
                             <x-wirekit::table.th>อาหาร / แพ้อาหาร</x-wirekit::table.th>
                             <x-wirekit::table.th>เสื้อ</x-wirekit::table.th>
                             <x-wirekit::table.th align="right">ค่าลงทะเบียน</x-wirekit::table.th>
-                            @if ($editable)<x-wirekit::table.th><x-wirekit::visually-hidden>จัดการ</x-wirekit::visually-hidden></x-wirekit::table.th>@endif
+                            @if ($editableExisting)<x-wirekit::table.th><x-wirekit::visually-hidden>จัดการ</x-wirekit::visually-hidden></x-wirekit::table.th>@endif
                         </x-wirekit::table.row>
                     </x-wirekit::table.head>
                     <x-wirekit::table.body>
@@ -152,16 +166,18 @@
                                 </x-wirekit::table.td>
                                 <x-wirekit::table.td><x-wirekit::text as="span" size="sm">{{ $p->shirtSizeLabel() }}</x-wirekit::text></x-wirekit::table.td>
                                 <x-wirekit::table.td align="right"><x-wirekit::text as="span" size="sm" tabular>{{ number_format($p->fee_amount, 2) }}</x-wirekit::text></x-wirekit::table.td>
-                                @if ($editable)
+                                @if ($editableExisting)
                                     <x-wirekit::table.td align="right">
                                         <x-wirekit::row gap="xs" justify="end">
                                             <x-wirekit::button size="sm" intent="neutral" surface="ghost" wire:click="edit({{ $p->id }})">
                                                 <x-slot:iconLeft><x-wirekit::icon name="edit" size="sm" /></x-slot:iconLeft>
                                                 แก้ไข
                                             </x-wirekit::button>
-                                            <x-wirekit::button size="sm" intent="danger" surface="ghost"
-                                                wire:click="delete({{ $p->id }})"
-                                                wire:confirm="ลบ {{ $p->displayName() }} ออกจากรายชื่อ?">ลบ</x-wirekit::button>
+                                            @if ($editable)
+                                                <x-wirekit::button size="sm" intent="danger" surface="ghost"
+                                                    wire:click="delete({{ $p->id }})"
+                                                    wire:confirm="ลบ {{ $p->displayName() }} ออกจากรายชื่อ?">ลบ</x-wirekit::button>
+                                            @endif
                                         </x-wirekit::row>
                                     </x-wirekit::table.td>
                                 @endif

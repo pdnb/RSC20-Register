@@ -312,6 +312,49 @@ class RegistrationFlowTest extends TestCase
         Livewire::actingAs($user)->test(GroupManager::class)->call('create', 'member')->assertForbidden();
     }
 
+    public function test_admin_unlock_lets_coordinator_edit_existing_participants_but_not_add_or_delete(): void
+    {
+        $user = $this->coordinator();
+        $group = $this->group();
+        $p = $this->participant($group, attrs: ['badge_photo_path' => 'badges/x.jpg']);
+        $group->refresh()->forceFill(['payment_status' => PaymentStatus::Approved])->save();
+
+        Livewire::actingAs($user)->test(GroupManager::class)->call('edit', $p->id)->assertForbidden();
+
+        Livewire::actingAs($this->admin())->test(GroupManager::class, ['group' => $group])->call('toggleEditUnlock');
+        $this->assertTrue($group->refresh()->isEditUnlocked());
+
+        Livewire::actingAs($user)->test(GroupManager::class)
+            ->call('edit', $p->id)
+            ->set('form.full_name', 'ชื่อ ใหม่')
+            ->set('pdpa', true)
+            ->call('save')
+            ->assertHasNoErrors();
+        $this->assertSame('ชื่อ ใหม่', $p->refresh()->full_name);
+
+        Livewire::actingAs($user)->test(GroupManager::class)
+            ->call('edit', $p->id)
+            ->set('form.position', 'บุคลากร')
+            ->set('pdpa', true)
+            ->call('save')
+            ->assertHasErrors('form.position');
+        $this->assertSame(ParticipantType::STUDENT, $p->refresh()->type->code);
+
+        Livewire::actingAs($user)->test(GroupManager::class)->call('create', 'member')->assertForbidden();
+        Livewire::actingAs($user)->test(GroupManager::class)->call('delete', $p->id)->assertForbidden();
+        Livewire::actingAs($user)->test(GroupManager::class)->call('saveReceipt')->assertForbidden();
+
+        Livewire::actingAs($this->admin())->test(GroupManager::class, ['group' => $group])->call('toggleEditUnlock');
+        Livewire::actingAs($user)->test(GroupManager::class)->call('edit', $p->id)->assertForbidden();
+    }
+
+    public function test_coordinator_cannot_toggle_edit_unlock(): void
+    {
+        $this->group();
+
+        Livewire::actingAs($this->coordinator())->test(GroupManager::class)->call('toggleEditUnlock')->assertForbidden();
+    }
+
     public function test_slip_submit_then_admin_approves(): void
     {
         $user = $this->coordinator();

@@ -26,7 +26,14 @@
                         <x-wirekit::table.td align="right">{{ $g->participants_count }}</x-wirekit::table.td>
                         <x-wirekit::table.td align="right">{{ number_format($g->total_amount, 2) }}</x-wirekit::table.td>
                         <x-wirekit::table.td>{{ $g->payment_method?->label() ?? '-' }}</x-wirekit::table.td>
-                        <x-wirekit::table.td><x-wirekit::badge size="sm" :intent="$g->payment_status->intent()">{{ $g->payment_status->label() }}</x-wirekit::badge></x-wirekit::table.td>
+                        <x-wirekit::table.td>
+                            <x-wirekit::row gap="xs" wrap>
+                                <x-wirekit::badge size="sm" :intent="$g->payment_status->intent()">{{ $g->payment_status->label() }}</x-wirekit::badge>
+                                @if ($g->isEditUnlocked())
+                                    <x-wirekit::badge size="sm" intent="warning">ปลดล็อคแก้ไข</x-wirekit::badge>
+                                @endif
+                            </x-wirekit::row>
+                        </x-wirekit::table.td>
                         <x-wirekit::table.td>{{ $g->slip_submitted_at?->format('d/m/Y H:i') ?? '-' }}</x-wirekit::table.td>
                         <x-wirekit::table.td align="right">
                             @if ($g->slip_path)

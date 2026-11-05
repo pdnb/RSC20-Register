@@ -37,6 +37,7 @@ class RegistrationGroup extends Model
             'approved_at' => 'datetime',
             'onsite_received_at' => 'datetime',
             'pdpa_accepted_at' => 'datetime',
+            'edit_unlocked_at' => 'datetime',
             'receipt_tax_id' => 'encrypted',
         ];
     }
@@ -75,6 +76,12 @@ class RegistrationGroup extends Model
     public function isEditableByCoordinator(): bool
     {
         return ! $this->isPaid() && Setting::registrationOpen();
+    }
+
+    /** An admin has let the coordinator edit existing participants (not add or delete) while otherwise locked. */
+    public function isEditUnlocked(): bool
+    {
+        return $this->edit_unlocked_at !== null;
     }
 
     /** Shared receipt info that participants use unless they enter their own. */

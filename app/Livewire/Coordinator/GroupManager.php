@@ -134,7 +134,7 @@ class GroupManager extends Component
 
     public function edit(int $id): void
     {
-        abort_unless($this->canEdit(), 403);
+        abort_unless($this->canEditExistingParticipants(), 403);
         $p = $this->group->participants()->findOrFail($id);
 
         $this->resetForm($p->section->value);
@@ -254,12 +254,18 @@ class GroupManager extends Component
 
     public function save(bool $addAnother = false): void
     {
-        abort_unless($this->canEdit(), 403);
+        $fullAccess = $this->canEdit();
+        abort_unless($this->editingId ? $this->canEditExistingParticipants() : $fullAccess, 403);
+        $addAnother = $addAnother && $fullAccess;
 
         $this->form['mobile_phone'] = preg_replace('/\D/', '', (string) $this->form['mobile_phone']);
 
         try {
             $this->validate();
+
+            if (! $fullAccess) {
+                $this->ensureFeeTypeUnchanged();
+            }
         } catch (ValidationException $e) {
             $this->step = $this->firstStepWithErrors(array_keys($e->errors()));
             $this->dispatch('wirekit:focus-invalid');
@@ -315,6 +321,38 @@ class GroupManager extends Component
         $this->group->refresh();
         unset($this->summary);
         $this->dispatch('wirekit-toast', variant: 'success', title: 'บันทึกแล้ว', message: $participant->displayName());
+    }
+
+    /**
+     * While only unlocked for editing, a change may not move the participant to a different fee type.
+     *
+     * @throws ValidationException
+     */
+    protected function ensureFeeTypeUnchanged(): void
+    {
+        $current = $this->group->participants()->findOrFail($this->editingId);
+        $typeCode = $this->form['section'] === Section::Executive->value
+            ? ParticipantType::EXECUTIVE
+            : Participant::MEMBER_POSITIONS[$this->form['position']];
+
+        if (ParticipantType::byCode($typeCode)->id !== $current->participant_type_id) {
+            throw ValidationException::withMessages([
+                'form.position' => 'ไม่สามารถเปลี่ยนประเภทผู้เข้าร่วมที่มีผลต่อค่าลงทะเบียนได้ในช่วงปลดล็อคแก้ไข',
+            ]);
+        }
+    }
+
+    public function toggleEditUnlock(): void
+    {
+        abort_unless(auth()->user()->isAdmin(), 403);
+
+        $unlocking = ! $this->group->isEditUnlocked();
+        $this->group->forceFill(['edit_unlocked_at' => $unlocking ? now() : null])->save();
+
+        AuditLog::record($unlocking ? 'group.edit_unlocked' : 'group.edit_locked', $this->group);
+        $this->dispatch('wirekit-toast', variant: 'success',
+            title: $unlocking ? 'ปลดล็อคให้แก้ไขรายชื่อแล้ว' : 'ล็อคการแก้ไขรายชื่อแล้ว',
+            message: $this->group->university->name);
     }
 
     /**
@@ -392,6 +430,7 @@ class GroupManager extends Component
             'members' => $participants->where('section', Section::Member),
             'types' => ParticipantType::query()->orderBy('sort_order')->get(),
             'editable' => $this->canEdit(),
+            'editableExisting' => $this->canEditExistingParticipants(),
             'registrationOpen' => Setting::registrationOpen(),
             'pdpaText' => Setting::get('pdpa_text'),
         ])->layout($this->layout());
