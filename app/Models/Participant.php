@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\Attendance;
 use App\Enums\Section;
 use App\Observers\ParticipantObserver;
 use App\Support\ThaiId;
@@ -40,11 +41,18 @@ class Participant extends Model
     /** Section 2 position → participant type code */
     public const MEMBER_POSITIONS = ['บุคลากร' => ParticipantType::STAFF, 'นักศึกษา' => ParticipantType::STUDENT];
 
+    /** Board game team size per university, by participant type code (1 staff + 6 students). */
+    public const BOARD_GAME_LIMITS = [ParticipantType::STAFF => 1, ParticipantType::STUDENT => 6];
+
     protected $fillable = [
-        'registration_group_id', 'participant_type_id', 'section', 'position', 'title', 'full_name',
+        'registration_group_id', 'participant_type_id', 'section', 'attendance', 'position', 'title', 'full_name',
         'mobile_phone', 'national_id', 'food_type', 'food_allergy', 'shirt_size', 'badge_photo_path',
         'fee_amount', 'receipt_name', 'receipt_address', 'receipt_tax_id', 'receipt_no',
         'checked_in_at', 'checked_in_by',
+    ];
+
+    protected $attributes = [
+        'attendance' => 'conference',
     ];
 
     protected $hidden = ['national_id', 'national_id_hash', 'receipt_tax_id'];
@@ -53,6 +61,7 @@ class Participant extends Model
     {
         return [
             'section' => Section::class,
+            'attendance' => Attendance::class,
             'national_id' => 'encrypted',
             'receipt_tax_id' => 'encrypted',
             'fee_amount' => 'decimal:2',
@@ -87,7 +96,17 @@ class Participant extends Model
 
     public function shirtSizeLabel(): string
     {
-        return self::SHIRT_SIZES[$this->shirt_size] ?? (string) $this->shirt_size;
+        if ($this->shirt_size === null) {
+            return '-';
+        }
+
+        return self::SHIRT_SIZES[$this->shirt_size] ?? $this->shirt_size;
+    }
+
+    /** Board-game-only entrants pay no fee and get no food or shirt. */
+    public function attendsConference(): bool
+    {
+        return $this->attendance->includesConference();
     }
 
     /** No receipt info of its own: the group's shared receipt info applies. */

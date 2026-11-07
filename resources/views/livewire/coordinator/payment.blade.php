@@ -23,6 +23,7 @@
                     </x-wirekit::table.row>
                 </x-wirekit::table.head>
                 <x-wirekit::table.body>
+                    @php($boardGameOnlyCount = $summary['count'] - $summary['lines']->sum('count'))
                     @forelse ($summary['lines'] as $line)
                         <x-wirekit::table.row>
                             <x-wirekit::table.td>{{ $line['type'] }}</x-wirekit::table.td>
@@ -31,12 +32,22 @@
                             <x-wirekit::table.td align="right">{{ number_format($line['subtotal'], 2) }}</x-wirekit::table.td>
                         </x-wirekit::table.row>
                     @empty
+                        @if ($boardGameOnlyCount === 0)
                         <x-wirekit::table.row>
                             <x-wirekit::table.td colspan="4">
                                 <x-wirekit::text as="span" size="sm" intent="muted">ยังไม่มีรายชื่อ <x-wirekit::link :href="route('coordinator.dashboard')">เพิ่มรายชื่อ</x-wirekit::link></x-wirekit::text>
                             </x-wirekit::table.td>
                         </x-wirekit::table.row>
+                        @endif
                     @endforelse
+                    @if ($boardGameOnlyCount > 0)
+                        <x-wirekit::table.row>
+                            <x-wirekit::table.td>แข่งขันบอร์ดเกมอย่างเดียว</x-wirekit::table.td>
+                            <x-wirekit::table.td align="right">{{ $boardGameOnlyCount }}</x-wirekit::table.td>
+                            <x-wirekit::table.td align="right">{{ number_format(0, 2) }}</x-wirekit::table.td>
+                            <x-wirekit::table.td align="right">{{ number_format(0, 2) }}</x-wirekit::table.td>
+                        </x-wirekit::table.row>
+                    @endif
                 </x-wirekit::table.body>
             </x-wirekit::table>
             <x-wirekit::card.footer class="bg-(--color-wk-bg-subtle)">
@@ -55,6 +66,10 @@
             @if ($group->isPaid())
                 <x-wirekit::callout intent="success" title="ชำระเงินเรียบร้อย">
                     {{ $group->payment_status->label() }} เมื่อ {{ $group->paidAt()?->format('d/m/Y H:i') }}
+                </x-wirekit::callout>
+            @elseif ($summary['count'] > 0 && $summary['total'] <= 0)
+                <x-wirekit::callout intent="info" title="ไม่มีค่าลงทะเบียน">
+                    ผู้เข้าร่วมทั้งหมดลงทะเบียนแข่งขันบอร์ดเกมอย่างเดียว จึงไม่ต้องชำระค่าลงทะเบียน
                 </x-wirekit::callout>
             @elseif ($summary['count'] > 0)
                 <x-wirekit::card>

@@ -50,6 +50,8 @@ class FinanceReport
         $includesOnsitePending = $statuses === [] ? (! $from && ! $to) : in_array('onsite_pending', $statuses, true);
 
         return Participant::query()
+            // Board-game-only entrants pay nothing, so there is nothing to submit to finance.
+            ->where('fee_amount', '>', 0)
             ->whereHas('group', function (Builder $g) use ($filters, $from, $to, $universityIds, $paidStatuses, $includesOnsitePending) {
                 $g->when($universityIds !== [], fn ($q) => $q->whereIn('university_id', $universityIds))
                     ->when($filters['method'] ?? null, fn ($q, $m) => $q->where('payment_method', $m));

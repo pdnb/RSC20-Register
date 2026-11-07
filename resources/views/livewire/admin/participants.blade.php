@@ -26,7 +26,7 @@
                         <x-wirekit::table.td><x-wirekit::text as="span" size="xs" family="mono">{{ $p->code }}</x-wirekit::text></x-wirekit::table.td>
                         <x-wirekit::table.td><x-wirekit::link :href="route('admin.groups.show', $p->group)" underline="hover">{{ $p->displayName() }}</x-wirekit::link></x-wirekit::table.td>
                         <x-wirekit::table.td>{{ $p->group->university->name }}</x-wirekit::table.td>
-                        <x-wirekit::table.td>{{ $p->type->name_th }}<x-wirekit::text size="xs" intent="muted" leading="tight">{{ $p->position }}</x-wirekit::text></x-wirekit::table.td>
+                        <x-wirekit::table.td>{{ $p->type->name_th }}<x-wirekit::text size="xs" intent="muted" leading="tight">{{ $p->position }}@if ($p->attendance->includesBoardGame()) · {{ $p->attendance->shortLabel() }}@endif</x-wirekit::text></x-wirekit::table.td>
                         <x-wirekit::table.td>{{ $p->mobile_phone }}</x-wirekit::table.td>
                         <x-wirekit::table.td>
                             @if (isset($revealed[$p->id]))
@@ -35,7 +35,7 @@
                                 <x-wirekit::button size="xs" intent="neutral" surface="ghost" class="font-mono" wire:click="reveal({{ $p->id }})" title="แสดงเลขเต็ม (บันทึก log)">{{ $p->maskedNationalId() }}</x-wirekit::button>
                             @endif
                         </x-wirekit::table.td>
-                        <x-wirekit::table.td>{{ $p->food_type }}@if ($p->food_allergy)<x-wirekit::text size="xs" intent="danger" leading="tight">แพ้: {{ $p->food_allergy }}</x-wirekit::text>@endif</x-wirekit::table.td>
+                        <x-wirekit::table.td>{{ $p->food_type ?? '-' }}@if ($p->food_allergy)<x-wirekit::text size="xs" intent="danger" leading="tight">แพ้: {{ $p->food_allergy }}</x-wirekit::text>@endif</x-wirekit::table.td>
                         <x-wirekit::table.td>{{ $p->shirtSizeLabel() }}</x-wirekit::table.td>
                         <x-wirekit::table.td>
                             @if ($p->checked_in_at)

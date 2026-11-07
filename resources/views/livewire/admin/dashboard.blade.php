@@ -71,6 +71,11 @@
                     @empty
                         <x-wirekit::text size="sm" intent="muted">ยังไม่มีประเภทผู้เข้าร่วม</x-wirekit::text>
                     @endforelse
+                    <x-wirekit::data-list>
+                        @foreach (\App\Enums\Attendance::cases() as $attendance)
+                            <x-wirekit::data-list.item :label="$attendance->label()" :value="number_format($byAttendance[$attendance->value] ?? 0).' คน'" />
+                        @endforeach
+                    </x-wirekit::data-list>
                 </x-wirekit::stack>
             </x-wirekit::card.body>
         </x-wirekit::card>

@@ -2,8 +2,10 @@
 
 namespace Tests\Feature;
 
+use App\Enums\Attendance;
 use App\Enums\PaymentMethod;
 use App\Enums\PaymentStatus;
+use App\Exports\Workbook;
 use App\Http\Controllers\Admin\ExportController;
 use App\Livewire\Admin\CoordinatorAccounts;
 use App\Livewire\Admin\FinanceReport as FinanceReportPage;
@@ -20,6 +22,7 @@ use Illuminate\Support\Facades\Storage;
 use Intervention\Image\Encoders\JpegEncoder;
 use Intervention\Image\Laravel\Facades\Image;
 use Livewire\Livewire;
+use Maatwebsite\Excel\Facades\Excel;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 use Tests\TestCase;
 
@@ -159,6 +162,27 @@ class ReportsTest extends TestCase
         }
         $this->actingAs($admin)->get(route('admin.exports.download', ['participants', 'with_id' => 1]))->assertOk();
         $this->assertDatabaseHas('audit_logs', ['action' => 'export.participants']);
+    }
+
+    public function test_board_game_export_lists_only_team_members_with_per_university_counts(): void
+    {
+        Excel::fake();
+        $this->travelTo(now()->setTime(9, 0));
+        $group = $this->group();
+        $staff = $this->participant($group, ParticipantType::STAFF, ['attendance' => Attendance::BoardGame]);
+        $student = $this->participant($group, ParticipantType::STUDENT, ['attendance' => Attendance::ConferenceAndBoardGame]);
+        $this->participant($group, ParticipantType::STUDENT);
+
+        $this->actingAs($this->admin())->get(route('admin.exports.download', 'board_game'));
+
+        Excel::assertDownloaded('rsc20-board_game-'.now()->format('Ymd-Hi').'.xlsx', function (Workbook $workbook) use ($staff, $student) {
+            [$teams, $list] = $workbook->sheets();
+
+            $this->assertSame([['มหาวิทยาลัยราชภัฏสุราษฎร์ธานี', 1, 1, 2], ['รวม', 1, 1, 2]], $teams->array());
+            $this->assertSame([$staff->code, $student->code], array_column($list->array(), 1));
+
+            return true;
+        });
     }
 
     public function test_admin_uploads_badge_background_and_downloads_badge_pdf(): void

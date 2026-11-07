@@ -96,6 +96,7 @@ class Payment extends Component
     {
         abort_if($this->group->isPaid(), 403, 'ชำระเงินแล้ว');
         abort_if($this->group->participants()->doesntExist(), 422, 'ยังไม่มีรายชื่อผู้เข้าร่วม');
+        abort_if((float) $this->group->total_amount <= 0, 422, 'ไม่มีค่าลงทะเบียนที่ต้องชำระ');
     }
 
     public function render()

@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Coordinator;
 
+use App\Enums\Attendance;
 use App\Enums\Section;
 use App\Livewire\Coordinator\Concerns\ResolvesGroup;
 use App\Models\AuditLog;
@@ -32,7 +33,7 @@ class GroupManager extends Component
      * @var array<int, list<string>>
      */
     protected const STEP_FIELDS = [
-        1 => ['form.section', 'form.position', 'form.title', 'form.title_other', 'form.full_name', 'form.mobile_phone', 'form.national_id'],
+        1 => ['form.section', 'form.position', 'form.attendance', 'form.title', 'form.title_other', 'form.full_name', 'form.mobile_phone', 'form.national_id'],
         2 => ['form.food_type', 'form.food_type_other', 'form.food_allergy', 'form.shirt_size', 'photo'],
         3 => ['form.use_group_receipt', 'form.receipt_name', 'form.receipt_address', 'form.receipt_tax_id', 'pdpa'],
     ];
@@ -72,6 +73,7 @@ class GroupManager extends Component
     {
         $this->form = [
             'section' => $section,
+            'attendance' => Attendance::Conference->value,
             'position' => $section === Section::Member->value ? 'บุคลากร' : '',
             'title' => 'นาย',
             'title_other' => '',
@@ -114,6 +116,29 @@ class GroupManager extends Component
         }
     }
 
+    /**
+     * Picking a board game attendance moves the form off a position whose team places are all taken,
+     * so the attendance chosen first never leaves a disabled position selected.
+     */
+    public function updatedForm(mixed $value, string $key): void
+    {
+        if ($key !== 'attendance' || ! $this->formAttendance()->includesBoardGame()) {
+            return;
+        }
+
+        $seatsLeft = $this->boardGameSeatsLeft;
+
+        if (($seatsLeft[Participant::MEMBER_POSITIONS[$this->form['position']] ?? ''] ?? 0) > 0) {
+            return;
+        }
+
+        $openPosition = collect(Participant::MEMBER_POSITIONS)->search(fn (string $code) => $seatsLeft[$code] > 0);
+
+        if ($openPosition !== false) {
+            $this->form['position'] = $openPosition;
+        }
+    }
+
     public function fillReceiptFromParticipant(): void
     {
         $title = $this->form['title'] === 'อื่นๆ' ? trim((string) $this->form['title_other']) : $this->form['title'];
@@ -145,15 +170,16 @@ class GroupManager extends Component
 
         $this->form = array_merge($this->form, [
             'position' => $p->position,
+            'attendance' => $p->attendance->value,
             'title' => $titleKnown ? $p->title : 'อื่นๆ',
             'title_other' => $titleKnown ? '' : $p->title,
             'full_name' => $p->full_name,
             'mobile_phone' => $p->mobile_phone,
             'national_id' => $p->national_id,
-            'food_type' => $foodKnown ? $p->food_type : 'อื่นๆ',
-            'food_type_other' => $foodKnown ? '' : $p->food_type,
+            'food_type' => $p->food_type === null ? Participant::FOOD_TYPES[0] : ($foodKnown ? $p->food_type : 'อื่นๆ'),
+            'food_type_other' => $foodKnown || $p->food_type === null ? '' : $p->food_type,
             'food_allergy' => (string) $p->food_allergy,
-            'shirt_size' => $p->shirt_size,
+            'shirt_size' => (string) $p->shirt_size,
             'use_group_receipt' => $p->usesGroupReceipt(),
             'receipt_name' => (string) $p->receipt_name,
             'receipt_address' => (string) $p->receipt_address,
@@ -168,6 +194,14 @@ class GroupManager extends Component
     {
         $member = $this->form['section'] === Section::Member->value;
         $ownReceipt = ! $this->form['use_group_receipt'];
+        $attendsConference = $this->formAttendance()->includesConference();
+
+        $conferenceRules = [
+            'form.food_type' => ['required', Rule::in([...Participant::FOOD_TYPES, 'อื่นๆ'])],
+            'form.food_type_other' => ['required_if:form.food_type,อื่นๆ', 'nullable', 'string', 'max:100'],
+            'form.food_allergy' => ['nullable', 'string', 'max:255'],
+            'form.shirt_size' => ['required', Rule::in(array_keys(Participant::SHIRT_SIZES))],
+        ];
 
         $receiptRules = $ownReceipt ? [
             'form.receipt_name' => ['required', 'string', 'max:200'],
@@ -186,6 +220,9 @@ class GroupManager extends Component
             'form.position' => $member
                 ? ['required', Rule::in(array_keys(Participant::MEMBER_POSITIONS))]
                 : ['required', 'string', 'max:150'],
+            'form.attendance' => $member
+                ? ['required', Rule::enum(Attendance::class), $this->boardGameLimitRule()]
+                : ['nullable'],
             'form.title' => ['required', Rule::in([...Participant::TITLES, 'อื่นๆ'])],
             'form.title_other' => ['required_if:form.title,อื่นๆ', 'nullable', 'string', 'max:50'],
             'form.full_name' => ['required', 'string', 'max:150'],
@@ -201,14 +238,41 @@ class GroupManager extends Component
                     $fail('เลขประจำตัวประชาชนนี้ลงทะเบียนแล้ว ('.$dup->group->university->name.')');
                 }
             }],
-            'form.food_type' => ['required', Rule::in([...Participant::FOOD_TYPES, 'อื่นๆ'])],
-            'form.food_type_other' => ['required_if:form.food_type,อื่นๆ', 'nullable', 'string', 'max:100'],
-            'form.food_allergy' => ['nullable', 'string', 'max:255'],
-            'form.shirt_size' => ['required', Rule::in(array_keys(Participant::SHIRT_SIZES))],
-            ...$receiptRules,
+            // Board game only: no fee, food or shirt, so none of those fields apply.
+            ...($attendsConference ? $conferenceRules : []),
+            ...($attendsConference ? $receiptRules : []),
             'photo' => [Rule::requiredIf(! $this->form['badge_photo_path']), 'nullable', 'image', 'mimes:jpg,jpeg,png', 'max:5120'],
             'pdpa' => ['accepted'],
         ];
+    }
+
+    /** Executives always attend the conference; staff and students choose. */
+    protected function formAttendance(): Attendance
+    {
+        if (($this->form['section'] ?? null) !== Section::Member->value) {
+            return Attendance::Conference;
+        }
+
+        return Attendance::tryFrom((string) ($this->form['attendance'] ?? '')) ?? Attendance::Conference;
+    }
+
+    /** Each university fields at most 1 staff member and 6 students in the board game competition. */
+    protected function boardGameLimitRule(): \Closure
+    {
+        return function ($attr, $value, $fail) {
+            $typeCode = Participant::MEMBER_POSITIONS[$this->form['position'] ?? ''] ?? null;
+
+            if (! $typeCode || ! $this->formAttendance()->includesBoardGame()) {
+                return;
+            }
+
+            $limit = Participant::BOARD_GAME_LIMITS[$typeCode];
+            $taken = FeeCalculator::boardGameTeam($this->group, $this->editingId)[$typeCode];
+
+            if ($taken >= $limit) {
+                $fail('ทีมแข่งขันบอร์ดเกมของมหาวิทยาลัยมี'.$this->form['position'].'ครบ '.$limit.' คนแล้ว');
+            }
+        };
     }
 
     protected function taxIdRule(): \Closure
@@ -224,6 +288,7 @@ class GroupManager extends Component
     {
         return [
             'form.position' => 'ตำแหน่ง',
+            'form.attendance' => 'รูปแบบการลงทะเบียน',
             'form.title' => 'คำนำหน้า',
             'form.title_other' => 'คำนำหน้า (ระบุ)',
             'form.full_name' => 'ชื่อ-นามสกุล',
@@ -274,6 +339,9 @@ class GroupManager extends Component
         }
 
         $f = $this->form;
+        $attendance = $this->formAttendance();
+        $conference = $attendance->includesConference();
+        $ownReceipt = $conference && ! $f['use_group_receipt'];
         $title = $f['title'] === 'อื่นๆ' ? trim($f['title_other']) : $f['title'];
         $typeCode = $f['section'] === Section::Executive->value
             ? ParticipantType::EXECUTIVE
@@ -285,18 +353,23 @@ class GroupManager extends Component
 
         $participant->fill([
             'section' => $f['section'],
+            'attendance' => $attendance,
             'participant_type_id' => ParticipantType::byCode($typeCode)->id,
             'position' => trim($f['position']),
             'title' => $title,
             'full_name' => trim($f['full_name']),
             'mobile_phone' => $f['mobile_phone'],
             'national_id' => ThaiId::normalize($f['national_id']),
-            'food_type' => $f['food_type'] === 'อื่นๆ' ? trim($f['food_type_other']) : $f['food_type'],
-            'food_allergy' => trim((string) $f['food_allergy']) ?: null,
-            'shirt_size' => $f['shirt_size'],
-            'receipt_name' => $f['use_group_receipt'] ? null : trim($f['receipt_name']),
-            'receipt_address' => $f['use_group_receipt'] ? null : trim($f['receipt_address']),
-            'receipt_tax_id' => $f['use_group_receipt'] ? null : ThaiId::normalize($f['receipt_tax_id']),
+            'food_type' => match (true) {
+                ! $conference => null,
+                $f['food_type'] === 'อื่นๆ' => trim($f['food_type_other']),
+                default => $f['food_type'],
+            },
+            'food_allergy' => $conference ? (trim((string) $f['food_allergy']) ?: null) : null,
+            'shirt_size' => $conference ? $f['shirt_size'] : null,
+            'receipt_name' => $ownReceipt ? trim($f['receipt_name']) : null,
+            'receipt_address' => $ownReceipt ? trim($f['receipt_address']) : null,
+            'receipt_tax_id' => $ownReceipt ? ThaiId::normalize($f['receipt_tax_id']) : null,
         ]);
         $participant->save();
 
@@ -319,12 +392,13 @@ class GroupManager extends Component
             $this->dispatch('wirekit-modal-close', name: 'participant-form');
         }
         $this->group->refresh();
-        unset($this->summary);
+        unset($this->summary, $this->boardGameSeatsLeft);
         $this->dispatch('wirekit-toast', variant: 'success', title: 'บันทึกแล้ว', message: $participant->displayName());
     }
 
     /**
-     * While only unlocked for editing, a change may not move the participant to a different fee type.
+     * While only unlocked for editing, a change may not move the participant to a different fee type,
+     * nor into or out of board game only (which has no fee).
      *
      * @throws ValidationException
      */
@@ -338,6 +412,12 @@ class GroupManager extends Component
         if (ParticipantType::byCode($typeCode)->id !== $current->participant_type_id) {
             throw ValidationException::withMessages([
                 'form.position' => 'ไม่สามารถเปลี่ยนประเภทผู้เข้าร่วมที่มีผลต่อค่าลงทะเบียนได้ในช่วงปลดล็อคแก้ไข',
+            ]);
+        }
+
+        if ($this->formAttendance()->includesConference() !== $current->attendsConference()) {
+            throw ValidationException::withMessages([
+                'form.attendance' => 'ไม่สามารถเปลี่ยนรูปแบบการลงทะเบียนที่มีผลต่อค่าลงทะเบียนได้ในช่วงปลดล็อคแก้ไข',
             ]);
         }
     }
@@ -400,7 +480,7 @@ class GroupManager extends Component
         $p->delete();
 
         $this->group->refresh();
-        unset($this->summary);
+        unset($this->summary, $this->boardGameSeatsLeft);
         $this->dispatch('wirekit-toast', variant: 'success', title: 'ลบแล้ว', message: $p->displayName());
     }
 
@@ -410,6 +490,21 @@ class GroupManager extends Component
         return FeeCalculator::forGroup($this->group);
     }
 
+    /**
+     * Board game team places still open per member type code, not counting the participant being edited.
+     *
+     * @return array<string, int>
+     */
+    #[Computed]
+    public function boardGameSeatsLeft(): array
+    {
+        $taken = FeeCalculator::boardGameTeam($this->group, $this->editingId);
+
+        return collect(Participant::BOARD_GAME_LIMITS)
+            ->map(fn (int $limit, string $code) => max(0, $limit - $taken[$code]))
+            ->all();
+    }
+
     /** Fee the open form would add, for the live preview next to the form. */
     #[Computed]
     public function formFee(): float
@@ -417,6 +512,10 @@ class GroupManager extends Component
         $code = ($this->form['section'] ?? '') === Section::Executive->value
             ? ParticipantType::EXECUTIVE
             : (Participant::MEMBER_POSITIONS[$this->form['position'] ?? ''] ?? null);
+
+        if (! $this->formAttendance()->includesConference()) {
+            return 0.0;
+        }
 
         return $code ? (float) ParticipantType::query()->where('code', $code)->value('fee') : 0.0;
     }

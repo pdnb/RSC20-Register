@@ -33,12 +33,13 @@
         <x-wirekit::callout intent="danger">{{ $group->reject_reason }}</x-wirekit::callout>
     @endif
 
-    {{-- Where the group is in the registration flow --}}
+    {{-- Where the group is in the registration flow (a group with nothing to pay — board game only — skips payment) --}}
+    @php($nothingToPay = $this->summary['count'] > 0 && $this->summary['total'] <= 0)
     @php($progressSteps = [
-        ['label' => 'ข้อมูลใบเสร็จ', 'description' => 'ข้อมูลกลางของมหาวิทยาลัย', 'done' => $group->hasReceiptInfo()],
+        ['label' => 'ข้อมูลใบเสร็จ', 'description' => 'ข้อมูลกลางของมหาวิทยาลัย', 'done' => $group->hasReceiptInfo() || $nothingToPay],
         ['label' => 'เพิ่มรายชื่อ', 'description' => $this->summary['count'].' คน', 'done' => $this->summary['count'] > 0],
-        ['label' => 'ชำระเงิน', 'description' => 'แนบสลิปหรือชำระหน้างาน', 'done' => $group->payment_status !== \App\Enums\PaymentStatus::Pending && $group->payment_status !== \App\Enums\PaymentStatus::Rejected],
-        ['label' => 'ยืนยันการชำระ', 'description' => $group->isPaid() ? 'เรียบร้อย' : 'รอเจ้าหน้าที่ตรวจสอบ', 'done' => $group->isPaid()],
+        ['label' => 'ชำระเงิน', 'description' => $nothingToPay ? 'ไม่มีค่าลงทะเบียน' : 'แนบสลิปหรือชำระหน้างาน', 'done' => $nothingToPay || ($group->payment_status !== \App\Enums\PaymentStatus::Pending && $group->payment_status !== \App\Enums\PaymentStatus::Rejected)],
+        ['label' => 'ยืนยันการชำระ', 'description' => $group->isPaid() || $nothingToPay ? 'เรียบร้อย' : 'รอเจ้าหน้าที่ตรวจสอบ', 'done' => $group->isPaid() || $nothingToPay],
     ])
     @php($currentProgressStep = collect($progressSteps)->search(fn ($s) => ! $s['done']))
     <x-wirekit::card>
@@ -58,6 +59,11 @@
                 :value="number_format($line['count'] ?? 0).' คน'"
                 :description="number_format($type->fee, 2).' บาท/คน'" />
         @endforeach
+        @php($boardGameLimits = \App\Models\Participant::BOARD_GAME_LIMITS)
+        <x-wirekit::stat icon="users"
+            label="ทีมแข่งขันบอร์ดเกม"
+            :value="number_format(array_sum($this->summary['boardGame'])).'/'.array_sum($boardGameLimits).' คน'"
+            :description="'บุคลากร '.$this->summary['boardGame'][\App\Models\ParticipantType::STAFF].'/'.$boardGameLimits[\App\Models\ParticipantType::STAFF].' · นักศึกษา '.$this->summary['boardGame'][\App\Models\ParticipantType::STUDENT].'/'.$boardGameLimits[\App\Models\ParticipantType::STUDENT]" />
         <x-wirekit::stat intent="primary" icon="coins"
             label="ยอดรวมที่ต้องชำระ"
             :value="number_format($this->summary['total'], 2).' บาท'"
@@ -152,16 +158,23 @@
                                         <x-wirekit::stack gap="none">
                                             <x-wirekit::text size="sm" weight="medium">{{ $p->displayName() }}</x-wirekit::text>
                                             <x-wirekit::text size="xs" intent="muted">{{ $p->position }} · {{ $p->code }}</x-wirekit::text>
-                                            @unless ($p->usesGroupReceipt())
-                                                <x-wirekit::row gap="none"><x-wirekit::badge size="sm" intent="info">ใบเสร็จแยก</x-wirekit::badge></x-wirekit::row>
-                                            @endunless
+                                            @if ($p->attendance->includesBoardGame() || (! $p->usesGroupReceipt() && $p->attendsConference()))
+                                                <x-wirekit::row gap="xs" wrap>
+                                                    @if ($p->attendance->includesBoardGame())
+                                                        <x-wirekit::badge size="sm" intent="primary">{{ $p->attendance->shortLabel() }}</x-wirekit::badge>
+                                                    @endif
+                                                    @if (! $p->usesGroupReceipt() && $p->attendsConference())
+                                                        <x-wirekit::badge size="sm" intent="info">ใบเสร็จแยก</x-wirekit::badge>
+                                                    @endif
+                                                </x-wirekit::row>
+                                            @endif
                                         </x-wirekit::stack>
                                     </x-wirekit::row>
                                 </x-wirekit::table.td>
                                 <x-wirekit::table.td><x-wirekit::text as="span" size="sm" tabular>{{ $p->mobile_phone }}</x-wirekit::text></x-wirekit::table.td>
                                 <x-wirekit::table.td><x-wirekit::text as="span" size="xs" family="mono">{{ $p->maskedNationalId() }}</x-wirekit::text></x-wirekit::table.td>
                                 <x-wirekit::table.td>
-                                    <x-wirekit::text size="sm">{{ $p->food_type }}</x-wirekit::text>
+                                    <x-wirekit::text size="sm">{{ $p->food_type ?? '-' }}</x-wirekit::text>
                                     @if ($p->food_allergy)<x-wirekit::text size="xs" intent="danger">แพ้: {{ $p->food_allergy }}</x-wirekit::text>@endif
                                 </x-wirekit::table.td>
                                 <x-wirekit::table.td><x-wirekit::text as="span" size="sm">{{ $p->shirtSizeLabel() }}</x-wirekit::text></x-wirekit::table.td>
@@ -210,6 +223,7 @@
     @php($wizardSteps = collect(['ข้อมูลผู้เข้าร่วม', 'อาหาร · เสื้อ · รูป', 'ใบเสร็จ · ยืนยัน'])
         ->map(fn ($label, $i) => $i + 1 < $step ? ['label' => $label, 'wire:click' => 'goToStep('.($i + 1).')'] : ['label' => $label])
         ->all())
+    @php($boardGameOnly = $form['section'] === 'member' && ($form['attendance'] ?? null) === \App\Enums\Attendance::BoardGame->value)
     <x-wirekit::modal name="participant-form" size="xl" dismissible="false">
         <x-wirekit::modal.header>
             <x-wirekit::row gap="sm" wrap>
@@ -228,13 +242,56 @@
                             @if ($form['section'] === 'executive')
                                 <x-wirekit::input wire:model="form.position" label="ตำแหน่ง" placeholder="เช่น อธิการบดี, รองอธิการบดีฝ่ายกิจการนักศึกษา" required />
                             @else
-                                <x-wirekit::field.set legend="ตำแหน่ง" name="form.position" as-field required>
-                                    <x-wirekit::grid cols="2" gap="sm">
-                                        @foreach (['บุคลากร', 'นักศึกษา'] as $position)
-                                            <x-wirekit::radio variant="card" wire:model.live="form.position" name="form.position" :value="$position" :label="$position" />
+                                {{-- Attendance first: it decides the fee and which positions still have board game places. --}}
+                                @php($seatsLeft = $this->boardGameSeatsLeft)
+                                @php($teamFull = array_sum($seatsLeft) === 0)
+                                @php($chosenAttendance = \App\Enums\Attendance::tryFrom((string) $form['attendance']) ?? \App\Enums\Attendance::Conference)
+                                <x-wirekit::field.set legend="รูปแบบการลงทะเบียน" name="form.attendance" as-field required>
+                                    <x-wirekit::grid cols="1 sm:3" gap="sm">
+                                        @foreach (\App\Enums\Attendance::cases() as $attendance)
+                                            @php($attendanceClosed = $attendance->includesBoardGame() && $teamFull && $chosenAttendance !== $attendance)
+                                            <x-wirekit::radio variant="card" wire:model.live="form.attendance" name="form.attendance"
+                                                wire:key="attendance-{{ $attendance->value }}"
+                                                :value="$attendance->value" :label="$attendance->label()"
+                                                :hint="$attendanceClosed ? 'ทีมบอร์ดเกมของมหาวิทยาลัยครบแล้ว' : $attendance->description()"
+                                                :disabled="$attendanceClosed" />
                                         @endforeach
                                     </x-wirekit::grid>
                                 </x-wirekit::field.set>
+
+                                @if ($chosenAttendance->includesBoardGame())
+                                    <x-wirekit::callout intent="info" title="แข่งขันบอร์ดเกม (Board game)">
+                                        แข่งขันประกวดการจัดทำสื่อการเรียนรู้ประเภทบอร์ดเกม เพื่อส่งเสริม Student based outcomes วิศวกรสังคม (ระดับประเทศ)
+                                        · ทีมละไม่เกิน {{ array_sum(\App\Models\Participant::BOARD_GAME_LIMITS) }} คน
+                                        (บุคลากร {{ \App\Models\Participant::BOARD_GAME_LIMITS[\App\Models\ParticipantType::STAFF] }} คน นักศึกษา {{ \App\Models\Participant::BOARD_GAME_LIMITS[\App\Models\ParticipantType::STUDENT] }} คน)
+                                    </x-wirekit::callout>
+                                @endif
+
+                                <x-wirekit::field.set legend="ตำแหน่ง" name="form.position" as-field required>
+                                    <x-wirekit::grid cols="1 sm:2" gap="sm">
+                                        @foreach (\App\Models\Participant::MEMBER_POSITIONS as $position => $typeCode)
+                                            @php($positionFee = (float) ($types->firstWhere('code', $typeCode)?->fee ?? 0))
+                                            @php($positionClosed = $chosenAttendance->includesBoardGame() && $seatsLeft[$typeCode] === 0 && $form['position'] !== $position)
+                                            <x-wirekit::radio variant="card" wire:model.live="form.position" name="form.position"
+                                                wire:key="position-{{ $typeCode }}"
+                                                :value="$position" :label="$position"
+                                                :hint="$chosenAttendance->includesConference() ? 'ค่าลงทะเบียน '.number_format($positionFee, 2).' บาท/คน' : 'ไม่มีค่าลงทะเบียน'"
+                                                :disabled="$positionClosed">
+                                                @if ($chosenAttendance->includesBoardGame())
+                                                    <x-slot:trailing>
+                                                        @if ($seatsLeft[$typeCode] > 0)
+                                                            <x-wirekit::badge size="sm">บอร์ดเกม เหลือ {{ $seatsLeft[$typeCode] }}/{{ \App\Models\Participant::BOARD_GAME_LIMITS[$typeCode] }}</x-wirekit::badge>
+                                                        @else
+                                                            <x-wirekit::badge size="sm" intent="warning">บอร์ดเกมครบแล้ว</x-wirekit::badge>
+                                                        @endif
+                                                    </x-slot:trailing>
+                                                @endif
+                                            </x-wirekit::radio>
+                                        @endforeach
+                                    </x-wirekit::grid>
+                                </x-wirekit::field.set>
+
+                                <x-wirekit::divider label="ข้อมูลส่วนตัว" />
                             @endif
 
                             <x-wirekit::grid cols="1 sm:3" gap="md">
@@ -255,6 +312,9 @@
                         </x-wirekit::stack>
                     @elseif ($step === 2)
                         <x-wirekit::stack gap="lg" wire:key="participant-step-2">
+                            @if ($boardGameOnly)
+                                <x-wirekit::callout intent="info">ผู้แข่งขันบอร์ดเกมอย่างเดียวไม่มีค่าลงทะเบียน ไม่มีอาหารและเสื้อ ต้องใช้เพียงรูปภาพสำหรับทำป้ายชื่อ</x-wirekit::callout>
+                            @else
                             <x-wirekit::grid cols="1 sm:2" gap="md">
                                 <x-wirekit::select wire:model.live="form.food_type" label="ประเภทอาหาร" required
                                     :options="array_combine([...\App\Models\Participant::FOOD_TYPES, 'อื่นๆ'], [...\App\Models\Participant::FOOD_TYPES, 'อื่นๆ (ระบุ)'])" />
@@ -274,6 +334,7 @@
                                 <x-wirekit::image x-show="showSizeChart" x-cloak :src="asset('images/shirt-size-chart.png')"
                                     rounded class="mx-auto w-full max-w-md" alt="ตารางไซซ์เสื้อโปโลชายและหญิง (รอบอก/ความยาว เป็นนิ้ว)" />
                             </x-wirekit::stack>
+                            @endif
 
                             <x-wirekit::stack gap="sm">
                                 <x-wirekit::label required>รูปภาพสำหรับทำป้ายชื่อ</x-wirekit::label>
@@ -304,6 +365,9 @@
                         </x-wirekit::stack>
                     @else
                         <x-wirekit::stack gap="lg" wire:key="participant-step-3">
+                            @if ($boardGameOnly)
+                                <x-wirekit::callout intent="info">ไม่มีค่าลงทะเบียน จึงไม่ต้องระบุข้อมูลใบเสร็จ</x-wirekit::callout>
+                            @else
                             <x-wirekit::stack gap="md">
                                 <x-wirekit::checkbox wire:model.live="form.use_group_receipt" label="ใช้ข้อมูลใบเสร็จกลางของมหาวิทยาลัย" />
                                 @if ($form['use_group_receipt'])
@@ -336,6 +400,7 @@
                                     <x-wirekit::textarea wire:model="form.receipt_address" label="ที่อยู่สำหรับออกใบเสร็จ" rows="2" required />
                                 @endif
                             </x-wirekit::stack>
+                            @endif
 
                             <x-wirekit::card>
                                 <x-wirekit::card.body>
@@ -344,12 +409,19 @@
                                         {{ $form['title'] === 'อื่นๆ' ? $form['title_other'] : $form['title'] }}{{ $form['full_name'] }}
                                     </x-wirekit::data-list.item>
                                     <x-wirekit::data-list.item label="ตำแหน่ง" :value="$form['position']" />
+                                    @if ($form['section'] === 'member')
+                                        <x-wirekit::data-list.item label="รูปแบบการลงทะเบียน" :value="\App\Enums\Attendance::tryFrom($form['attendance'])?->label() ?? '-'" />
+                                    @endif
                                     <x-wirekit::data-list.item label="โทรศัพท์" :value="$form['mobile_phone']" />
-                                    <x-wirekit::data-list.item label="อาหาร">
-                                        {{ $form['food_type'] === 'อื่นๆ' ? $form['food_type_other'] : $form['food_type'] }}
-                                        @if ($form['food_allergy'])<x-wirekit::text as="span" size="inherit" intent="danger">· แพ้ {{ $form['food_allergy'] }}</x-wirekit::text>@endif
-                                    </x-wirekit::data-list.item>
-                                    <x-wirekit::data-list.item label="เสื้อ" :value="\App\Models\Participant::SHIRT_SIZES[$form['shirt_size']] ?? '-'" />
+                                    @if ($boardGameOnly)
+                                        <x-wirekit::data-list.item label="อาหาร / เสื้อ" value="ไม่มี (แข่งขันบอร์ดเกมอย่างเดียว)" />
+                                    @else
+                                        <x-wirekit::data-list.item label="อาหาร">
+                                            {{ $form['food_type'] === 'อื่นๆ' ? $form['food_type_other'] : $form['food_type'] }}
+                                            @if ($form['food_allergy'])<x-wirekit::text as="span" size="inherit" intent="danger">· แพ้ {{ $form['food_allergy'] }}</x-wirekit::text>@endif
+                                        </x-wirekit::data-list.item>
+                                        <x-wirekit::data-list.item label="เสื้อ" :value="\App\Models\Participant::SHIRT_SIZES[$form['shirt_size']] ?? '-'" />
+                                    @endif
                                 </x-wirekit::data-list>
                                 </x-wirekit::card.body>
                             </x-wirekit::card>

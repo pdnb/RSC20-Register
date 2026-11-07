@@ -7,6 +7,7 @@ use App\Exports\Workbook;
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
 use App\Models\Participant;
+use App\Models\ParticipantType;
 use App\Models\RegistrationGroup;
 use App\Models\Setting;
 use App\Support\Images;
@@ -27,6 +28,7 @@ class ExportController extends Controller
         'food' => 'สรุปอาหารและอาหารที่แพ้',
         'finance' => 'สรุปการเงินรายมหาวิทยาลัย',
         'checkins' => 'รายชื่อการเช็กอิน',
+        'board_game' => 'รายชื่อทีมแข่งขันบอร์ดเกม',
         'badges' => 'รูปป้ายชื่อ (ZIP + CSV สำหรับ mail-merge)',
         'badge_pdf' => 'ป้ายชื่อพร้อมพิมพ์ (PDF)',
     ];
@@ -61,6 +63,7 @@ class ExportController extends Controller
             'food' => $this->foodSheets(),
             'finance' => [$this->financeSheet()],
             'checkins' => [$this->checkinSheet()],
+            'board_game' => $this->boardGameSheets(),
         };
 
         return Excel::download(new Workbook($sheets), 'rsc20-'.$type.'-'.now()->format('Ymd-Hi').'.xlsx');
@@ -80,21 +83,22 @@ class ExportController extends Controller
     {
         $rows = $this->participants()->map(fn (Participant $p, $i) => [
             $i + 1, $p->code, $p->group->university->name, $p->section->label(), $p->type->name_th, $p->position,
-            $p->title, $p->full_name, $p->mobile_phone,
+            $p->attendance->label(), $p->title, $p->full_name, $p->mobile_phone,
             $withId ? ThaiId::format($p->national_id) : $p->maskedNationalId(),
-            $p->food_type, $p->food_allergy, $p->shirtSizeLabel(), (float) $p->fee_amount,
+            $p->food_type ?? '-', $p->food_allergy, $p->shirtSizeLabel(), (float) $p->fee_amount,
             $p->group->payment_status->label(), $p->badge_photo_path ? 'มี' : '-',
         ])->all();
 
         return new ArraySheet('ผู้เข้าร่วม', [
-            'ลำดับ', 'รหัส', 'มหาวิทยาลัย', 'ส่วน', 'ประเภท', 'ตำแหน่ง', 'คำนำหน้า', 'ชื่อ-นามสกุล', 'โทรศัพท์มือถือ',
+            'ลำดับ', 'รหัส', 'มหาวิทยาลัย', 'ส่วน', 'ประเภท', 'ตำแหน่ง', 'รูปแบบการลงทะเบียน', 'คำนำหน้า', 'ชื่อ-นามสกุล', 'โทรศัพท์มือถือ',
             'เลขประจำตัวประชาชน', 'ประเภทอาหาร', 'อาหารที่แพ้', 'ไซซ์เสื้อ', 'ค่าลงทะเบียน', 'สถานะชำระเงิน', 'รูปป้ายชื่อ',
         ], $rows);
     }
 
     private function receiptsSheet(bool $withId): ArraySheet
     {
-        $rows = $this->participants()->map(fn (Participant $p, $i) => [
+        // Board-game-only entrants pay nothing, so they get no receipt.
+        $rows = $this->participants()->filter(fn (Participant $p) => $p->attendsConference())->values()->map(fn (Participant $p, $i) => [
             $i + 1, $p->code, $p->displayName(), $p->receiptName(), $p->receiptAddress(),
             $withId ? ThaiId::format($p->receiptTaxId()) : ThaiId::mask($p->receiptTaxId()),
             $p->group->university->name, $p->type->name_th, (float) $p->fee_amount,
@@ -110,7 +114,7 @@ class ExportController extends Controller
 
     private function shirtSheets(): array
     {
-        $all = $this->participants();
+        $all = $this->participants()->filter(fn (Participant $p) => $p->shirt_size !== null)->values();
         $sizes = array_keys(Participant::SHIRT_SIZES);
 
         $byUniversity = $all->groupBy(fn ($p) => $p->group->university->name)->map(fn ($ps, $name) => [
@@ -127,7 +131,7 @@ class ExportController extends Controller
 
     private function foodSheets(): array
     {
-        $all = $this->participants();
+        $all = $this->participants()->filter(fn (Participant $p) => $p->food_type !== null)->values();
 
         return [
             new ArraySheet('สรุปประเภทอาหาร', ['ประเภทอาหาร', 'จำนวน'],
@@ -159,6 +163,40 @@ class ExportController extends Controller
         ])->all();
 
         return new ArraySheet('การเช็กอิน', ['รหัส', 'ชื่อ-นามสกุล', 'มหาวิทยาลัย', 'ประเภท', 'เวลาเช็กอิน', 'ผู้บันทึก'], $rows);
+    }
+
+    /**
+     * Board game teams: a per-university count against the team limits, and everyone on a team.
+     *
+     * @return list<ArraySheet>
+     */
+    private function boardGameSheets(): array
+    {
+        $entrants = $this->participants()->filter(fn (Participant $p) => $p->attendance->includesBoardGame())->values();
+        $countOf = fn (Collection $ps, string $code) => $ps->filter(fn (Participant $p) => $p->type->code === $code)->count();
+
+        $teams = $entrants->groupBy(fn (Participant $p) => $p->group->university->name)->map(fn (Collection $ps, string $name) => [
+            $name, $countOf($ps, ParticipantType::STAFF), $countOf($ps, ParticipantType::STUDENT), $ps->count(),
+        ])->values()->all();
+        $teams[] = ['รวม', $countOf($entrants, ParticipantType::STAFF), $countOf($entrants, ParticipantType::STUDENT), $entrants->count()];
+
+        $limits = Participant::BOARD_GAME_LIMITS;
+
+        return [
+            new ArraySheet('สรุปทีม', [
+                'มหาวิทยาลัย',
+                'บุคลากร (สูงสุด '.$limits[ParticipantType::STAFF].')',
+                'นักศึกษา (สูงสุด '.$limits[ParticipantType::STUDENT].')',
+                'รวม',
+            ], $teams),
+            new ArraySheet('รายชื่อ', [
+                'ลำดับ', 'รหัส', 'มหาวิทยาลัย', 'ตำแหน่ง', 'ชื่อ-นามสกุล', 'โทรศัพท์มือถือ', 'รูปแบบการลงทะเบียน', 'สถานะชำระเงิน', 'เช็กอิน',
+            ], $entrants->map(fn (Participant $p, int $i) => [
+                $i + 1, $p->code, $p->group->university->name, $p->position, $p->displayName(), $p->mobile_phone,
+                $p->attendance->label(), $p->group->payment_status->label(),
+                $p->checked_in_at?->format('d/m/Y H:i') ?? 'ยังไม่เช็กอิน',
+            ])->all()),
+        ];
     }
 
     private function badges()

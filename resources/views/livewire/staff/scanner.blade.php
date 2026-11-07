@@ -57,12 +57,18 @@
                         <x-wirekit::stack gap="none" class="min-w-0">
                             <x-wirekit::heading level="2" size="lg">{{ $participant->displayName() }}</x-wirekit::heading>
                             <x-wirekit::text size="sm" intent="muted">{{ $participant->type->name_th }} · {{ $participant->position }}</x-wirekit::text>
+                            @if ($participant->attendance->includesBoardGame())
+                                <x-wirekit::row gap="none"><x-wirekit::badge size="sm" intent="primary">{{ $participant->attendance->label() }}</x-wirekit::badge></x-wirekit::row>
+                            @endif
                             <x-wirekit::text size="sm" intent="muted">{{ $group->university->name }}</x-wirekit::text>
                             <x-wirekit::text size="xs" family="mono" intent="accent">{{ $participant->code }}</x-wirekit::text>
                         </x-wirekit::stack>
                     </x-wirekit::row>
 
                     <x-wirekit::grid cols="2" gap="sm">
+                        @if (! $participant->attendsConference())
+                            <x-wirekit::callout intent="warning" title="แข่งขันบอร์ดเกมอย่างเดียว" class="col-span-2">ไม่มีเสื้อและอาหาร</x-wirekit::callout>
+                        @else
                         <x-wirekit::card surface="flat" class="bg-(--color-wk-bg-subtle)">
                             <x-wirekit::card.body>
                                 <x-wirekit::text size="xs" intent="muted">ไซซ์เสื้อ</x-wirekit::text>
@@ -84,6 +90,7 @@
                                     <x-wirekit::text size="sm" weight="medium">ไม่มี</x-wirekit::text>
                                 </x-wirekit::card.body>
                             </x-wirekit::card>
+                        @endif
                         @endif
                         <x-wirekit::card surface="flat" class="col-span-2 bg-(--color-wk-bg-subtle)">
                             <x-wirekit::card.body>
