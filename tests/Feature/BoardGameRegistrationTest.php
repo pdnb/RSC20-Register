@@ -22,7 +22,7 @@ class BoardGameRegistrationTest extends TestCase
         Storage::fake('local');
     }
 
-    public function test_board_game_only_member_needs_no_food_shirt_or_receipt_and_pays_nothing(): void
+    public function test_board_game_only_member_needs_no_shirt_or_receipt_and_pays_nothing(): void
     {
         $group = $this->group();
         $this->participant($group, ParticipantType::STUDENT);
@@ -32,7 +32,6 @@ class BoardGameRegistrationTest extends TestCase
             ->assertHasNoErrors();
 
         $entrant = Participant::query()->where('attendance', Attendance::BoardGame)->firstOrFail();
-        $this->assertNull($entrant->food_type);
         $this->assertNull($entrant->shirt_size);
         $this->assertNull($entrant->receipt_name);
         $this->assertSame('0.00', $entrant->fee_amount);
@@ -43,6 +42,27 @@ class BoardGameRegistrationTest extends TestCase
         $this->assertSame(2, $summary['count']);
         $this->assertSame(1500.0, $summary['total']);
         $this->assertSame(1, $summary['lines']->sum('count'));
+    }
+
+    public function test_board_game_only_member_can_choose_food_and_note_an_allergy(): void
+    {
+        $this->memberForm('นักศึกษา', Attendance::BoardGame)
+            ->set('form.food_type', 'อื่นๆ')
+            ->set('form.food_type_other', '')
+            ->call('save')
+            ->assertHasErrors('form.food_type_other');
+
+        $this->memberForm('นักศึกษา', Attendance::BoardGame)
+            ->set('form.food_type', 'อาหารฮาลาล')
+            ->set('form.food_allergy', 'กุ้ง')
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $entrant = Participant::query()->firstOrFail();
+        $this->assertSame('อาหารฮาลาล', $entrant->food_type);
+        $this->assertSame('กุ้ง', $entrant->food_allergy);
+        $this->assertNull($entrant->shirt_size);
+        $this->assertSame('0.00', $entrant->fee_amount);
     }
 
     public function test_conference_and_board_game_still_needs_food_and_shirt_and_pays_the_fee(): void

@@ -67,7 +67,7 @@
 
                     <x-wirekit::grid cols="2" gap="sm">
                         @if (! $participant->attendsConference())
-                            <x-wirekit::callout intent="warning" title="แข่งขันบอร์ดเกมอย่างเดียว" class="col-span-2">ไม่มีเสื้อและอาหาร</x-wirekit::callout>
+                            <x-wirekit::callout intent="warning" title="แข่งขันบอร์ดเกมอย่างเดียว" class="col-span-2">ไม่มีเสื้อ</x-wirekit::callout>
                         @else
                         <x-wirekit::card surface="flat" class="bg-(--color-wk-bg-subtle)">
                             <x-wirekit::card.body>
@@ -75,6 +75,8 @@
                                 <x-wirekit::text size="xl" weight="semibold">{{ $participant->shirtSizeLabel() }}</x-wirekit::text>
                             </x-wirekit::card.body>
                         </x-wirekit::card>
+                        @endif
+                        @if ($participant->food_type !== null)
                         <x-wirekit::card surface="flat" class="bg-(--color-wk-bg-subtle)">
                             <x-wirekit::card.body>
                                 <x-wirekit::text size="xs" intent="muted">อาหาร</x-wirekit::text>

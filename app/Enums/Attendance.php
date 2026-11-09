@@ -38,7 +38,7 @@ enum Attendance: string
         };
     }
 
-    /** Attending the conference brings the registration fee, food and a shirt. */
+    /** Attending the conference brings the registration fee and a shirt. Everyone gets food. */
     public function includesConference(): bool
     {
         return $this !== self::BoardGame;

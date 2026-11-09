@@ -103,7 +103,7 @@ class Participant extends Model
         return self::SHIRT_SIZES[$this->shirt_size] ?? $this->shirt_size;
     }
 
-    /** Board-game-only entrants pay no fee and get no food or shirt. */
+    /** Board-game-only entrants pay no fee and get no shirt, but they still choose their food. */
     public function attendsConference(): bool
     {
         return $this->attendance->includesConference();

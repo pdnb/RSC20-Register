@@ -313,8 +313,8 @@
                     @elseif ($step === 2)
                         <x-wirekit::stack gap="lg" wire:key="participant-step-2">
                             @if ($boardGameOnly)
-                                <x-wirekit::callout intent="info">ผู้แข่งขันบอร์ดเกมอย่างเดียวไม่มีค่าลงทะเบียน ไม่มีอาหารและเสื้อ ต้องใช้เพียงรูปภาพสำหรับทำป้ายชื่อ</x-wirekit::callout>
-                            @else
+                                <x-wirekit::callout intent="info">ผู้แข่งขันบอร์ดเกมอย่างเดียวไม่มีค่าลงทะเบียนและไม่มีเสื้อ ต้องระบุประเภทอาหารและใช้รูปภาพสำหรับทำป้ายชื่อ</x-wirekit::callout>
+                            @endif
                             <x-wirekit::grid cols="1 sm:2" gap="md">
                                 <x-wirekit::select wire:model.live="form.food_type" label="ประเภทอาหาร" required
                                     :options="array_combine([...\App\Models\Participant::FOOD_TYPES, 'อื่นๆ'], [...\App\Models\Participant::FOOD_TYPES, 'อื่นๆ (ระบุ)'])" />
@@ -322,10 +322,13 @@
                                     <x-wirekit::input wire:model="form.food_type_other" label="ประเภทอาหาร (ระบุ)" required />
                                 @endif
                                 <x-wirekit::input wire:model="form.food_allergy" label="อาหารที่แพ้" placeholder="ไม่มี ให้เว้นว่าง" />
-                                <x-wirekit::select wire:model="form.shirt_size" label="ขนาดไซซ์เสื้อ" required placeholder="เลือกแบบและไซซ์เสื้อ"
-                                    :options="\App\Models\Participant::SHIRT_SIZES" />
+                                @unless ($boardGameOnly)
+                                    <x-wirekit::select wire:model="form.shirt_size" label="ขนาดไซซ์เสื้อ" required placeholder="เลือกแบบและไซซ์เสื้อ"
+                                        :options="\App\Models\Participant::SHIRT_SIZES" />
+                                @endunless
                             </x-wirekit::grid>
 
+                            @unless ($boardGameOnly)
                             <x-wirekit::stack gap="sm" align="start" x-data="{ showSizeChart: false }">
                                 <x-wirekit::button type="button" size="sm" intent="neutral" surface="ghost" x-on:click="showSizeChart = !showSizeChart">
                                     <x-slot:iconLeft><x-wirekit::icon name="info" size="sm" /></x-slot:iconLeft>
@@ -334,7 +337,7 @@
                                 <x-wirekit::image x-show="showSizeChart" x-cloak :src="asset('images/shirt-size-chart.png')"
                                     rounded class="mx-auto w-full max-w-md" alt="ตารางไซซ์เสื้อโปโลชายและหญิง (รอบอก/ความยาว เป็นนิ้ว)" />
                             </x-wirekit::stack>
-                            @endif
+                            @endunless
 
                             <x-wirekit::stack gap="sm">
                                 <x-wirekit::label required>รูปภาพสำหรับทำป้ายชื่อ</x-wirekit::label>
@@ -413,13 +416,13 @@
                                         <x-wirekit::data-list.item label="รูปแบบการลงทะเบียน" :value="\App\Enums\Attendance::tryFrom($form['attendance'])?->label() ?? '-'" />
                                     @endif
                                     <x-wirekit::data-list.item label="โทรศัพท์" :value="$form['mobile_phone']" />
+                                    <x-wirekit::data-list.item label="อาหาร">
+                                        {{ $form['food_type'] === 'อื่นๆ' ? $form['food_type_other'] : $form['food_type'] }}
+                                        @if ($form['food_allergy'])<x-wirekit::text as="span" size="inherit" intent="danger">· แพ้ {{ $form['food_allergy'] }}</x-wirekit::text>@endif
+                                    </x-wirekit::data-list.item>
                                     @if ($boardGameOnly)
-                                        <x-wirekit::data-list.item label="อาหาร / เสื้อ" value="ไม่มี (แข่งขันบอร์ดเกมอย่างเดียว)" />
+                                        <x-wirekit::data-list.item label="เสื้อ" value="ไม่มี (แข่งขันบอร์ดเกมอย่างเดียว)" />
                                     @else
-                                        <x-wirekit::data-list.item label="อาหาร">
-                                            {{ $form['food_type'] === 'อื่นๆ' ? $form['food_type_other'] : $form['food_type'] }}
-                                            @if ($form['food_allergy'])<x-wirekit::text as="span" size="inherit" intent="danger">· แพ้ {{ $form['food_allergy'] }}</x-wirekit::text>@endif
-                                        </x-wirekit::data-list.item>
                                         <x-wirekit::data-list.item label="เสื้อ" :value="\App\Models\Participant::SHIRT_SIZES[$form['shirt_size']] ?? '-'" />
                                     @endif
                                 </x-wirekit::data-list>

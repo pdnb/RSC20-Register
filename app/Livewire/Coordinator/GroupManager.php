@@ -196,10 +196,13 @@ class GroupManager extends Component
         $ownReceipt = ! $this->form['use_group_receipt'];
         $attendsConference = $this->formAttendance()->includesConference();
 
-        $conferenceRules = [
+        $foodRules = [
             'form.food_type' => ['required', Rule::in([...Participant::FOOD_TYPES, 'อื่นๆ'])],
             'form.food_type_other' => ['required_if:form.food_type,อื่นๆ', 'nullable', 'string', 'max:100'],
             'form.food_allergy' => ['nullable', 'string', 'max:255'],
+        ];
+
+        $shirtRules = [
             'form.shirt_size' => ['required', Rule::in(array_keys(Participant::SHIRT_SIZES))],
         ];
 
@@ -238,8 +241,9 @@ class GroupManager extends Component
                     $fail('เลขประจำตัวประชาชนนี้ลงทะเบียนแล้ว ('.$dup->group->university->name.')');
                 }
             }],
-            // Board game only: no fee, food or shirt, so none of those fields apply.
-            ...($attendsConference ? $conferenceRules : []),
+            ...$foodRules,
+            // Board game only: no fee, shirt or receipt, so those fields do not apply.
+            ...($attendsConference ? $shirtRules : []),
             ...($attendsConference ? $receiptRules : []),
             'photo' => [Rule::requiredIf(! $this->form['badge_photo_path']), 'nullable', 'image', 'mimes:jpg,jpeg,png', 'max:5120'],
             'pdpa' => ['accepted'],
@@ -360,12 +364,8 @@ class GroupManager extends Component
             'full_name' => trim($f['full_name']),
             'mobile_phone' => $f['mobile_phone'],
             'national_id' => ThaiId::normalize($f['national_id']),
-            'food_type' => match (true) {
-                ! $conference => null,
-                $f['food_type'] === 'อื่นๆ' => trim($f['food_type_other']),
-                default => $f['food_type'],
-            },
-            'food_allergy' => $conference ? (trim((string) $f['food_allergy']) ?: null) : null,
+            'food_type' => $f['food_type'] === 'อื่นๆ' ? trim($f['food_type_other']) : $f['food_type'],
+            'food_allergy' => trim((string) $f['food_allergy']) ?: null,
             'shirt_size' => $conference ? $f['shirt_size'] : null,
             'receipt_name' => $ownReceipt ? trim($f['receipt_name']) : null,
             'receipt_address' => $ownReceipt ? trim($f['receipt_address']) : null,
