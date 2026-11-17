@@ -75,34 +75,24 @@
                 <x-wirekit::card>
                     <x-wirekit::card.header><x-wirekit::heading level="2" size="base">ป้ายชื่อ</x-wirekit::heading></x-wirekit::card.header>
                     <x-wirekit::card.body>
-                        <x-wirekit::grid template="lg:[16rem_1fr]" gap="lg">
-                            <x-wirekit::stack gap="sm">
-                                @if ($badgeBackgroundUrl)
-                                    {{-- Positioning canvas: the guides are placed by percentage over the background image. --}}
-                                    <div class="relative overflow-hidden rounded-lg border border-(--color-wk-border)">
-                                        <x-wirekit::image :src="$badgeBackgroundUrl" alt="พื้นหลังป้ายชื่อ" loading="eager" class="block w-full" />
-                                        <div class="absolute border-2 border-dashed border-(--color-wk-danger) bg-(--color-wk-danger)/15"
-                                            style="left: {{ (float) $settings['badge_photo_left'] }}%; top: {{ (float) $settings['badge_photo_top'] }}%; width: {{ (float) $settings['badge_photo_width'] }}%; height: {{ (float) $settings['badge_photo_height'] }}%"></div>
-                                        <div class="absolute inset-x-[8%] border-t-2 border-dashed border-(--color-wk-info) pt-1 text-center text-[10px] font-semibold text-(--color-wk-info-text)"
-                                            style="top: {{ (float) $settings['badge_text_top'] }}%">ชื่อ · ตำแหน่ง · มหาวิทยาลัย</div>
-                                    </div>
-                                    <x-wirekit::row justify="end">
-                                        <x-wirekit::button size="sm" intent="danger" surface="ghost" wire:click="removeBadgeBackground" wire:confirm="ลบพื้นหลังป้ายชื่อ?">ลบพื้นหลัง</x-wirekit::button>
-                                    </x-wirekit::row>
-                                @else
-                                    <x-wirekit::empty-state title="ยังไม่มีพื้นหลัง" class="aspect-2/3 rounded-lg border border-dashed border-(--color-wk-border-strong)" />
-                                @endif
-                            </x-wirekit::stack>
+                        <x-wirekit::stack gap="lg">
+                            <x-wirekit::grid cols="1 sm:2" gap="lg">
+                                @foreach ($badgeBackgrounds as $background)
+                                    <x-wirekit::stack gap="sm">
+                                        <x-wirekit::text size="sm" weight="medium">{{ $background['label'] }}</x-wirekit::text>
+                                        {{-- Positioning canvas: the guides are placed by percentage over the background image. --}}
+                                        <div class="relative overflow-hidden rounded-lg border border-(--color-wk-border)">
+                                            <x-wirekit::image :src="route('admin.badge-background', $background['kind'])" :alt="$background['label']" loading="eager" class="block w-full" />
+                                            <div class="absolute border-2 border-dashed border-(--color-wk-danger) bg-(--color-wk-danger)/15"
+                                                style="left: {{ (float) $settings['badge_photo_left'] }}%; top: {{ (float) $settings['badge_photo_top'] }}%; width: {{ (float) $settings['badge_photo_width'] }}%; height: {{ (float) $settings['badge_photo_height'] }}%"></div>
+                                            <div class="absolute inset-x-[8%] border-t-2 border-dashed border-(--color-wk-info) pt-1 text-center text-[10px] font-semibold text-(--color-wk-info-text)"
+                                                style="top: {{ (float) $settings['badge_text_top'] }}%">ชื่อ · ตำแหน่ง · มหาวิทยาลัย · บทบาท</div>
+                                        </div>
+                                    </x-wirekit::stack>
+                                @endforeach
+                            </x-wirekit::grid>
 
                             <x-wirekit::stack gap="md">
-                                <x-wirekit::stack gap="xs">
-                                    <x-wirekit::file-upload wire:model="badgeBackground" accept="image/jpeg,image/png"
-                                        :label="$badgeBackgroundUrl ? 'เปลี่ยนพื้นหลังป้ายชื่อ' : 'อัปโหลดพื้นหลังป้ายชื่อ'"
-                                        hint="JPG หรือ PNG แนวตั้ง ไม่เกิน 10 MB — ใช้ขนาดหน้ากระดาษตามสัดส่วนของภาพ"
-                                        :error="$errors->first('badgeBackground')" />
-                                    <x-wirekit::text size="xs" intent="muted" wire:loading wire:target="badgeBackground">กำลังอัปโหลด…</x-wirekit::text>
-                                </x-wirekit::stack>
-
                                 <x-wirekit::stack gap="sm">
                                     <x-wirekit::text size="sm" weight="medium">ตำแหน่งกรอบรูป (% ของภาพพื้นหลัง)</x-wirekit::text>
                                     <x-wirekit::grid cols="2 sm:4" gap="sm">
@@ -115,9 +105,9 @@
                                 <x-wirekit::grid cols="2 sm:4" gap="sm">
                                     <x-wirekit::input wire:model.live.debounce.400ms="settings.badge_text_top" type="number" step="0.1" min="0" max="100" label="ข้อความเริ่มที่ (บน)" suffix="%" :error="$errors->first('settings.badge_text_top')" />
                                 </x-wirekit::grid>
-                                <x-wirekit::text size="xs" intent="muted">กรอบสีแดงคือตำแหน่งรูปผู้เข้าร่วม เส้นสีน้ำเงินคือจุดเริ่มข้อความ ปรับให้ตรงกับพื้นหลังแล้วกด "บันทึกการตั้งค่า" จากนั้นดาวน์โหลด PDF ป้ายชื่อได้ที่เมนู <x-wirekit::link :href="route('admin.exports')">ดาวน์โหลดข้อมูล</x-wirekit::link></x-wirekit::text>
+                                <x-wirekit::text size="xs" intent="muted">กรอบสีแดงคือตำแหน่งรูป เส้นสีน้ำเงินคือจุดเริ่มชื่อ ระบบเลือกแบบตามรูปแบบการลงทะเบียน ผู้ที่ลงทั้งประชุมและบอร์ดเกมได้สองใบ ปรับตำแหน่งแล้วกด "บันทึกการตั้งค่า" จากนั้นดาวน์โหลดได้ที่เมนู <x-wirekit::link :href="route('admin.exports')">ดาวน์โหลดข้อมูล</x-wirekit::link></x-wirekit::text>
                             </x-wirekit::stack>
-                        </x-wirekit::grid>
+                        </x-wirekit::stack>
                     </x-wirekit::card.body>
                 </x-wirekit::card>
             @endif

@@ -48,4 +48,21 @@ enum Attendance: string
     {
         return $this !== self::Conference;
     }
+
+    /**
+     * Cards this registration prints. Someone who attends both gets the conference card first.
+     *
+     * @return list<array{kind: string, role: string}>
+     */
+    public function badges(): array
+    {
+        $conference = ['kind' => 'conference', 'role' => 'ผู้เข้าร่วมประชุม'];
+        $boardGame = ['kind' => 'board_game', 'role' => 'ผู้เข้าร่วมการแข่งขันบอร์ดเกม'];
+
+        return match ($this) {
+            self::Conference => [$conference],
+            self::BoardGame => [$boardGame],
+            self::ConferenceAndBoardGame => [$conference, $boardGame],
+        };
+    }
 }

@@ -25,7 +25,7 @@ class DatabaseSeeder extends Seeder
             University::query()->updateOrCreate(
                 ['code' => sprintf('U%02d', $i + 1)],
                 [
-                    'name' => $name,
+                    'name' => 'มหาวิทยาลัยราชภัฏ'.$name,
                     'sort_order' => $i + 1,
                 ],
             );
