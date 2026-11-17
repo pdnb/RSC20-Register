@@ -4,7 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Participant;
 use App\Models\RegistrationGroup;
-use App\Models\Setting;
+use App\Support\BadgeBackgrounds;
 use App\Support\QrCode;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -30,13 +30,12 @@ class FileController extends Controller
         return Storage::disk('local')->response($participant->badge_photo_path, null, ['Cache-Control' => 'private, max-age=600']);
     }
 
-    /** Admin-only route; the background is shared by every badge. */
-    public function badgeBackground()
+    /** Admin-only preview of a signed badge background. */
+    public function badgeBackground(string $kind)
     {
-        $path = Setting::get('badge_background_path');
-        abort_unless($path && Storage::disk('local')->exists($path), 404);
+        abort_unless(array_key_exists($kind, BadgeBackgrounds::FILES), 404);
 
-        return Storage::disk('local')->response($path, null, ['Cache-Control' => 'private, max-age=600']);
+        return response()->file(BadgeBackgrounds::path($kind), ['Cache-Control' => 'private, max-age=600']);
     }
 
     public function qr(Request $request, Participant $participant)

@@ -17,7 +17,7 @@ use App\Models\RegistrationGroup;
 use App\Models\Setting;
 use App\Models\User;
 use App\Services\FinanceReport;
-use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Intervention\Image\Encoders\JpegEncoder;
 use Intervention\Image\Laravel\Facades\Image;
@@ -25,6 +25,7 @@ use Livewire\Livewire;
 use Maatwebsite\Excel\Facades\Excel;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 use Tests\TestCase;
+use ZipArchive;
 
 class ReportsTest extends TestCase
 {
@@ -155,7 +156,6 @@ class ReportsTest extends TestCase
     {
         $this->paidTransferGroup('มหาวิทยาลัยราชภัฏสุราษฎร์ธานี');
         $admin = $this->admin();
-        Livewire::actingAs($admin)->test(Settings::class)->set('badgeBackground', UploadedFile::fake()->image('bg.png', 1003, 1568));
 
         foreach (array_keys(ExportController::TYPES) as $type) {
             $this->actingAs($admin)->get(route('admin.exports.download', $type))->assertOk()->assertDownload();
@@ -185,37 +185,78 @@ class ReportsTest extends TestCase
         });
     }
 
-    public function test_admin_uploads_badge_background_and_downloads_badge_pdf(): void
+    public function test_badge_pdf_prints_a_card_for_each_attendance_and_two_for_both(): void
     {
         $group = $this->group();
-        $withPhoto = $this->participant($group);
-        Storage::disk('local')->put('badges/'.$withPhoto->code.'.jpg', (string) Image::createImage(600, 600)->fill('aabbcc')->encode(new JpegEncoder));
-        $withPhoto->forceFill(['badge_photo_path' => 'badges/'.$withPhoto->code.'.jpg'])->saveQuietly();
-        $this->participant($group);
-        $admin = $this->admin();
+        $this->participant($group, attrs: ['attendance' => Attendance::Conference, 'full_name' => 'ประชุม อย่างเดียว']);
+        $this->participant($group, attrs: ['attendance' => Attendance::BoardGame, 'full_name' => 'บอร์ดเกม อย่างเดียว']);
+        $this->participant($group, attrs: ['attendance' => Attendance::ConferenceAndBoardGame, 'full_name' => 'ทั้งสอง อย่าง']);
 
-        $this->actingAs($admin)->get(route('admin.exports.download', 'badge_pdf'))->assertStatus(422);
+        $response = $this->actingAs($this->admin())->get(route('admin.exports.download', 'badge_pdf'));
 
-        Livewire::actingAs($admin)->test(Settings::class)
-            ->set('badgeBackground', UploadedFile::fake()->image('bg.png', 1003, 1568))
-            ->assertHasNoErrors();
-
-        Storage::disk('local')->assertExists(Settings::BADGE_BACKGROUND_PATH);
-        $this->assertSame(Settings::BADGE_BACKGROUND_PATH, Setting::get('badge_background_path'));
-        $this->actingAs($admin)->get(route('admin.badge-background'))->assertOk();
-
-        $response = $this->actingAs($admin)->get(route('admin.exports.download', 'badge_pdf'))->assertOk()->assertDownload();
+        $response->assertOk()->assertDownload();
         $this->assertSame('application/pdf', $response->headers->get('Content-Type'));
+        $this->assertSame(4, preg_match_all('/\/Type\s*\/Page(?!s)/', $response->getContent()));
     }
 
-    public function test_badge_background_rejects_non_images_and_non_admins(): void
+    public function test_badge_prints_staff_position_as_officer_without_changing_the_record(): void
     {
-        Livewire::actingAs($this->admin())->test(Settings::class)
-            ->set('badgeBackground', UploadedFile::fake()->create('bg.pdf', 10, 'application/pdf'))
-            ->assertHasErrors('badgeBackground');
-        Storage::disk('local')->assertMissing(Settings::BADGE_BACKGROUND_PATH);
+        $group = $this->group();
+        $staff = $this->participant($group, ParticipantType::STAFF);
+        $student = $this->participant($group, ParticipantType::STUDENT);
 
-        $this->actingAs($this->coordinator())->get(route('admin.badge-background'))->assertForbidden();
+        $response = $this->actingAs($this->admin())->get(route('admin.exports.download', 'badges'));
+
+        $response->assertOk();
+        $path = sys_get_temp_dir().'/badge-position-'.uniqid().'.zip';
+        file_put_contents($path, $response->streamedContent());
+        $zip = new ZipArchive;
+        $this->assertTrue($zip->open($path));
+        $csv = ltrim($zip->getFromName('badges.csv'), "\xEF\xBB\xBF");
+        $zip->close();
+        unset($zip);
+        unlink($path);
+
+        $positions = [];
+        foreach (array_slice(array_map('str_getcsv', preg_split('/\r\n|\n|\r/', trim($csv))), 1) as $row) {
+            $positions[$row[2]] = $row[4];
+        }
+
+        $this->assertSame('เจ้าหน้าที่', $positions[$staff->full_name]);
+        $this->assertSame('นักศึกษา', $positions[$student->full_name]);
+        $this->assertSame('บุคลากร', $staff->fresh()->position);
+    }
+
+    public function test_badge_backgrounds_are_visible_only_to_admins(): void
+    {
+        $admin = $this->admin();
+
+        foreach (['conference', 'board_game'] as $kind) {
+            $this->actingAs($admin)->get(route('admin.badge-background', $kind))->assertOk();
+        }
+
+        $this->actingAs($this->coordinator())->get(route('admin.badge-background', 'conference'))->assertForbidden();
+        $this->actingAs($admin)->get('/admin/settings/badge-background/other')->assertNotFound();
+
+        Livewire::actingAs($admin)->test(Settings::class)
+            ->set('section', 'badge')
+            ->assertSee('ผู้เข้าร่วมประชุม')
+            ->assertSee('ผู้เข้าร่วมการแข่งขันบอร์ดเกม');
+    }
+
+    public function test_badge_layout_migration_replaces_only_the_previous_defaults(): void
+    {
+        $now = now();
+        DB::table('settings')->insert([
+            ['key' => 'badge_photo_left', 'value' => '34.5', 'created_at' => $now, 'updated_at' => $now],
+            ['key' => 'badge_text_top', 'value' => '70', 'created_at' => $now, 'updated_at' => $now],
+        ]);
+
+        $migration = require database_path('migrations/2026_11_17_223814_update_badge_layout_defaults.php');
+        $migration->up();
+
+        $this->assertSame('33.8', DB::table('settings')->where('key', 'badge_photo_left')->value('value'));
+        $this->assertSame('70', DB::table('settings')->where('key', 'badge_text_top')->value('value'));
     }
 
     public function test_settings_save_opens_the_section_holding_a_rejected_field(): void

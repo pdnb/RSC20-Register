@@ -24,17 +24,13 @@ class Setting extends Model
         'participant_code_prefix' => 'RSC20-',
         'participant_code_digits' => '4',
         'participant_code_start' => '1',
-        // Name badge: photo box and text start as % of the background; defaults fit the RSC20 template
-        'badge_photo_left' => '34.5',
-        'badge_photo_top' => '33.4',
-        'badge_photo_width' => '31',
-        'badge_photo_height' => '23.4',
-        'badge_text_top' => '58.5',
-        'badge_background_path' => null,
+        // Name badge: photo box and text start as % of the signed backgrounds
+        'badge_photo_left' => '33.8',
+        'badge_photo_top' => '34.1',
+        'badge_photo_width' => '32.6',
+        'badge_photo_height' => '25.0',
+        'badge_text_top' => '60.0',
     ];
-
-    /** Keys kept by the system rather than typed into the settings form. */
-    public const MANAGED = ['badge_background_path'];
 
     protected $primaryKey = 'key';
 

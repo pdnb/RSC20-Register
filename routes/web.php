@@ -11,6 +11,7 @@ use App\Livewire\Auth\ChangePassword;
 use App\Livewire\Auth\Login;
 use App\Livewire\Coordinator;
 use App\Livewire\Staff\Scanner;
+use App\Support\BadgeBackgrounds;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
@@ -64,7 +65,9 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
     Route::livewire('/coordinators', Admin\CoordinatorAccounts::class)->name('coordinators');
     Route::livewire('/users', Admin\Users::class)->name('users');
     Route::livewire('/settings', Admin\Settings::class)->name('settings');
-    Route::get('/settings/badge-background', [FileController::class, 'badgeBackground'])->name('badge-background');
+    Route::get('/settings/badge-background/{kind}', [FileController::class, 'badgeBackground'])
+        ->whereIn('kind', array_keys(BadgeBackgrounds::FILES))
+        ->name('badge-background');
 
     Route::get('/exports', [ExportController::class, 'index'])->name('exports');
     Route::get('/exports/{type}', [ExportController::class, 'download'])->name('exports.download');

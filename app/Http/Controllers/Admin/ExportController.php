@@ -10,6 +10,7 @@ use App\Models\Participant;
 use App\Models\ParticipantType;
 use App\Models\RegistrationGroup;
 use App\Models\Setting;
+use App\Support\BadgeBackgrounds;
 use App\Support\Images;
 use App\Support\ThaiId;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -214,7 +215,7 @@ class ExportController extends Controller
             if ($file) {
                 $zip->addFromString($file, Storage::disk('local')->get($p->badge_photo_path));
             }
-            fputcsv($csv, [$p->code, $p->title, $p->full_name, $p->displayName(), $p->position, $p->type->name_th, $p->group->university->name, $file]);
+            fputcsv($csv, [$p->code, $p->title, $p->full_name, $p->displayName(), $this->badgePosition($p->position), $p->type->name_th, $p->group->university->name, $file]);
         }
 
         rewind($csv);
@@ -224,14 +225,17 @@ class ExportController extends Controller
         return response()->download($path, 'rsc20-badges-'.now()->format('Ymd-Hi').'.zip')->deleteFileAfterSend();
     }
 
-    /** One badge per page: uploaded background, photo cropped into the frame, name/position/university below. */
+    /** The registration form stores บุคลากร; the badge prints เจ้าหน้าที่. */
+    private function badgePosition(?string $position): string
+    {
+        return $position === 'บุคลากร' ? 'เจ้าหน้าที่' : (string) $position;
+    }
+
+    /** One badge per page. Attendance chooses the signed background, and both prints two cards. */
     private function badgePdf()
     {
         $disk = Storage::disk('local');
-        $background = Setting::get('badge_background_path');
-        abort_unless($background && $disk->exists($background), 422, 'กรุณาอัปโหลดพื้นหลังป้ายชื่อที่หน้าตั้งค่าก่อน');
-
-        [$imageWidth, $imageHeight] = getimagesizefromstring($disk->get($background));
+        [$imageWidth, $imageHeight] = getimagesize(BadgeBackgrounds::path('conference'));
         $pageWidth = self::BADGE_WIDTH_MM / 25.4 * 72;
         $pageHeight = $pageWidth * $imageHeight / $imageWidth;
         $percent = fn (string $key, float $of) => round((float) Setting::get($key) / 100 * $of, 2);
@@ -245,18 +249,31 @@ class ExportController extends Controller
         $photoWidth = 600;
         $photoHeight = (int) round($photoWidth * $box['height'] / max($box['width'], 1));
 
-        $badges = $this->participants()->map(fn (Participant $p) => [
-            'name' => $p->displayName(),
-            'position' => $p->position,
-            'university' => $p->group->university->name,
-            'photo' => $p->badge_photo_path && $disk->exists($p->badge_photo_path)
-                ? 'data:image/jpeg;base64,'.base64_encode(Images::cover($disk->path($p->badge_photo_path), $photoWidth, $photoHeight))
-                : null,
-        ]);
+        $backgrounds = collect(array_keys(BadgeBackgrounds::FILES))
+            ->mapWithKeys(fn (string $kind) => [$kind => BadgeBackgrounds::dataUri($kind)]);
+
+        $badges = $this->participants()->flatMap(function (Participant $participant) use ($disk, $photoWidth, $photoHeight) {
+            $photo = $participant->badge_photo_path && $disk->exists($participant->badge_photo_path)
+                ? 'data:image/jpeg;base64,'.base64_encode(Images::cover($disk->path($participant->badge_photo_path), $photoWidth, $photoHeight))
+                : null;
+
+            $position = $this->badgePosition($participant->position);
+
+            return array_map(fn (array $card) => [
+                'kind' => $card['kind'],
+                'role' => $card['role'],
+                'name' => $participant->displayName(),
+                'position' => filled($position) && ! str_starts_with($position, 'ตำแหน่ง')
+                    ? 'ตำแหน่ง '.$position
+                    : $position,
+                'university' => $participant->group->university->name,
+                'photo' => $photo,
+            ], $participant->attendance->badges());
+        });
 
         $pdf = Pdf::loadView('pdf.badges', [
             'badges' => $badges,
-            'background' => 'data:image/jpeg;base64,'.base64_encode($disk->get($background)),
+            'backgrounds' => $backgrounds,
             'page' => ['width' => round($pageWidth, 2), 'height' => round($pageHeight, 2)],
             'box' => $box,
             'textTop' => $percent('badge_text_top', $pageHeight),
