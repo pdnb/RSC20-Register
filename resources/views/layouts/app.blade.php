@@ -4,6 +4,8 @@
         @include('layouts.head')
     </head>
     <body class="flex min-h-screen flex-col bg-(--color-wk-bg-muted) text-(--color-wk-text) antialiased">
+        @php($showLineGroup = auth()->user()?->isCoordinator() && \App\Models\Setting::hasLineGroup())
+
         {{-- Coordinator layout: white top bar --}}
         <x-wirekit::navbar sticky container max="xl" mobile="scroll">
             <x-slot:brand>
@@ -27,6 +29,9 @@
                         <x-wirekit::text size="xs" weight="medium">{{ auth()->user()->name }}</x-wirekit::text>
                         <x-wirekit::text size="xs" intent="muted">{{ auth()->user()->university?->name }}</x-wirekit::text>
                     </x-wirekit::stack>
+                    @if ($showLineGroup)
+                        <x-wirekit::button intent="success" surface="soft" size="sm" x-data x-on:click="$dispatch('wirekit-modal-show', { name: 'line-group' })">กลุ่ม LINE</x-wirekit::button>
+                    @endif
                     <x-wirekit::form method="POST" action="{{ route('logout') }}">
                         @csrf
                         <x-wirekit::button type="submit" intent="neutral" surface="outline" size="sm">ออกจากระบบ</x-wirekit::button>
@@ -46,6 +51,10 @@
         </x-wirekit::main>
 
         @include('layouts.footer')
+
+        @if ($showLineGroup)
+            <x-line-group-modal />
+        @endif
 
         <x-wirekit::toast-region />
         @wirekitScripts

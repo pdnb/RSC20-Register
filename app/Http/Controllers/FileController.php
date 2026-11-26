@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Participant;
 use App\Models\RegistrationGroup;
+use App\Models\Setting;
 use App\Support\BadgeBackgrounds;
 use App\Support\QrCode;
 use Illuminate\Http\Request;
@@ -36,6 +37,16 @@ class FileController extends Controller
         abort_unless(array_key_exists($kind, BadgeBackgrounds::FILES), 404);
 
         return response()->file(BadgeBackgrounds::path($kind), ['Cache-Control' => 'private, max-age=600']);
+    }
+
+    /** The LINE group is for coordinators; admins need the image for the settings preview. */
+    public function lineQr(Request $request)
+    {
+        abort_unless($request->user()->isCoordinator() || $request->user()->isAdmin(), 403);
+        $path = Setting::get('line_qr_path');
+        abort_unless($path && Storage::disk('local')->exists($path), 404);
+
+        return Storage::disk('local')->response($path, null, ['Cache-Control' => 'private, max-age=600']);
     }
 
     public function qr(Request $request, Participant $participant)

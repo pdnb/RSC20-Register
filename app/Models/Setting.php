@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Storage;
 
 class Setting extends Model
 {
@@ -30,7 +31,13 @@ class Setting extends Model
         'badge_photo_width' => '32.6',
         'badge_photo_height' => '25.0',
         'badge_text_top' => '60.0',
+        // LINE group for coordinators: invite link and/or an uploaded QR image
+        'line_group_url' => '',
+        'line_qr_path' => null,
     ];
+
+    /** Keys kept by the system rather than typed into the settings form. */
+    public const MANAGED = ['line_qr_path'];
 
     protected $primaryKey = 'key';
 
@@ -54,6 +61,21 @@ class Setting extends Model
         }
 
         Cache::forget('settings');
+    }
+
+    /** URL of the uploaded LINE group QR image, versioned so a replacement is not served from cache. */
+    public static function lineQrUrl(): ?string
+    {
+        $path = self::get('line_qr_path');
+
+        return $path && Storage::disk('local')->exists($path)
+            ? route('files.line-qr', ['v' => Storage::disk('local')->lastModified($path)])
+            : null;
+    }
+
+    public static function hasLineGroup(): bool
+    {
+        return filled(self::get('line_group_url')) || self::lineQrUrl() !== null;
     }
 
     public static function registrationOpen(): bool
