@@ -110,6 +110,27 @@
                         </x-wirekit::stack>
                     </x-wirekit::card.body>
                 </x-wirekit::card>
+            @elseif ($section === 'line')
+                <x-wirekit::card>
+                    <x-wirekit::card.header><x-wirekit::heading level="2" size="base">กลุ่ม LINE ผู้ประสานงาน</x-wirekit::heading></x-wirekit::card.header>
+                    <x-wirekit::card.body>
+                        <x-wirekit::stack gap="md">
+                            <x-wirekit::input wire:model="settings.line_group_url" type="url" label="ลิงก์เชิญเข้ากลุ่ม" placeholder="https://line.me/ti/g/..." :error="$errors->first('settings.line_group_url')" />
+                            <x-wirekit::file-upload wire:model="lineQr" accept="image/jpeg,image/png"
+                                :label="$lineQrUrl ? 'เปลี่ยนรูป QR' : 'อัปโหลดรูป QR (ไม่บังคับ)'"
+                                hint="JPG หรือ PNG ไม่เกิน 5 MB — ถ้าไม่อัปโหลด ระบบจะสร้าง QR จากลิงก์เชิญ"
+                                :error="$errors->first('lineQr')" />
+                            <x-wirekit::text size="xs" intent="muted" wire:loading wire:target="lineQr">กำลังอัปโหลด…</x-wirekit::text>
+                            @if ($lineQrUrl)
+                                <x-wirekit::stack gap="sm" align="start">
+                                    <x-wirekit::image :src="$lineQrUrl" alt="QR Code กลุ่ม LINE" loading="eager" class="w-48 rounded-lg border border-(--color-wk-border)" />
+                                    <x-wirekit::button size="sm" intent="danger" surface="ghost" wire:click="removeLineQr" wire:confirm="ลบรูป QR กลุ่ม LINE?">ลบรูป QR</x-wirekit::button>
+                                </x-wirekit::stack>
+                            @endif
+                            <x-wirekit::text size="xs" intent="muted">เมื่อมีลิงก์หรือรูป QR ผู้ประสานงานจะเห็นหน้าต่างชวนเข้ากลุ่มหนึ่งครั้งหลังเข้าสู่ระบบ และเปิดดูซ้ำได้จากปุ่ม "กลุ่ม LINE" ลิงก์มีผลหลังกด "บันทึกการตั้งค่า"</x-wirekit::text>
+                        </x-wirekit::stack>
+                    </x-wirekit::card.body>
+                </x-wirekit::card>
             @endif
 
             <x-wirekit::row justify="end">

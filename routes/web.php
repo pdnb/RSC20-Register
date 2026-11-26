@@ -45,6 +45,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/files/slip/{group}', [FileController::class, 'slip'])->name('files.slip');
     Route::get('/files/badge/{participant}', [FileController::class, 'badge'])->name('files.badge');
     Route::get('/files/qr/{participant}', [FileController::class, 'qr'])->name('files.qr');
+    Route::get('/files/line-qr', [FileController::class, 'lineQr'])->name('files.line-qr');
 });
 
 Route::middleware(['auth', 'role:coordinator'])->group(function () {
